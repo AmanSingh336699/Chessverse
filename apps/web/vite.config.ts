@@ -1,4 +1,4 @@
-﻿import { defineConfig } from "vite";
+import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
@@ -20,9 +20,5 @@ export default defineConfig({
             "/health": "http://localhost:3001",
             "/ready": "http://localhost:3001",
         },
-    },
-    test: {
-        environment: "jsdom",
-        setupFiles: "./src/test/setup.ts",
     },
 });
