@@ -81,9 +81,9 @@ function resolveExplicitEngineCommand(enginePath: string): EngineCommand {
 function scorePackagedEngine(fileName: string): number {
     if (!/^stockfish-.*\.js$/i.test(fileName)) return Number.NEGATIVE_INFINITY;
     let score = 0;
-    if (!fileName.includes("lite")) score += 40;
-    if (!fileName.includes("asm")) score += 30;
-    if (!fileName.includes("single")) score += 20;
+    // Strongly prefer single-threaded and lite variants to prevent Wasm OOM on 512MB servers
+    if (fileName.includes("single")) score += 1000;
+    if (fileName.includes("lite")) score += 500;
     if (fileName.includes("worker")) score -= 100;
     return score;
 }
