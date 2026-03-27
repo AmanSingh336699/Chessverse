@@ -1,0 +1,20 @@
+{
+  "name": "chessverse",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Production-grade chess AI web application",
+  "scripts": {
+    "dev": "npm --prefix apps/api run dev",
+    "dev:api": "npm --prefix apps/api run dev",
+    "dev:web": "npm --prefix apps/web run dev",
+    "build": "npm --prefix apps/api run build && npm --prefix apps/web run build",
+    "typecheck": "npm --prefix apps/api run typecheck && npm --prefix apps/web run typecheck",
+    "test": "npm --prefix apps/api run test && npm --prefix apps/web run test",
+    "db:generate": "npm --prefix apps/api run db:generate",
+    "db:push": "npm --prefix apps/api run db:push",
+    "db:studio": "npm --prefix apps/api run db:studio"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

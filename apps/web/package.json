@@ -1,0 +1,35 @@
+{
+    "name": "@chessverse/web",
+    "version": "1.0.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "vite --host",
+        "build": "tsc -p tsconfig.json --noEmit && vite build",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "test": "vitest run"
+    },
+    "dependencies": {
+        "@tanstack/react-query": "^5.69.0",
+        "chess.js": "^1.1.0",
+        "framer-motion": "^12.4.7",
+        "react": "^19.0.0",
+        "react-chessboard": "^4.7.3",
+        "react-dom": "^19.0.0",
+        "zod": "^3.25.76"
+    },
+    "devDependencies": {
+        "@tailwindcss/vite": "^4.2.0",
+        "@testing-library/jest-dom": "^6.6.3",
+        "@testing-library/react": "^16.2.0",
+        "@types/react": "^19.0.10",
+        "@types/react-dom": "^19.0.4",
+        "@vitejs/plugin-react": "^4.3.4",
+        "babel-plugin-react-compiler": "^19.0.0-beta-63e3235-20250105",
+        "jsdom": "^26.0.0",
+        "tailwindcss": "^4.2.0",
+        "typescript": "^5.7.3",
+        "vite": "^6.2.0",
+        "vitest": "^3.0.8"
+    }
+}

@@ -1,0 +1,46 @@
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+.rollup.cache/
+wasm/
+
+# Environment variables
+.env
+.env.local
+.env.production
+.env.development
+.env.test
+
+# Logs and debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+logs/
+*.log
+eslint.txt
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Large binaries (Chess Opening Books)
+*.bin
+*.polyglot
+*.epd
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local databases
+*.sqlite
+*.db
