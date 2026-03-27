@@ -58,7 +58,7 @@ function createNodeEngineCommand(
 ): EngineCommand {
     return {
         command: process.execPath,
-        args: [...getNodeWasmArgs(), entryPath],
+        args: ["--max-old-space-size=64", ...getNodeWasmArgs(), entryPath],
         source,
     };
 }

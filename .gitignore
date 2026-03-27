@@ -32,6 +32,7 @@ Thumbs.db
 
 # Large binaries (Chess Opening Books)
 *.bin
+!apps/api/assets/opening/gm2600.bin
 *.polyglot
 *.epd
 
