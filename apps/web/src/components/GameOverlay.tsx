@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { GameSnapshot } from "../contracts";
+import type { GameSnapshot } from "@chessverse/contracts";
 
 interface GameOverlayProps {
   game: GameSnapshot | null;

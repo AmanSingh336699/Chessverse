@@ -14,7 +14,7 @@ import type {
   ScoreBreakdown,
   TacticalTheme,
   TrapSequenceState,
-} from "./contracts.js";
+} from "@chessverse/contracts";
 import type { Chess, Move } from "chess.js";
 import type { Logger } from "pino";
 

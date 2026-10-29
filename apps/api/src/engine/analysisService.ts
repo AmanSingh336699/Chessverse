@@ -1,4 +1,4 @@
-import type { CandidateMove } from "../contracts.js";
+import type { CandidateMove } from "@chessverse/contracts";
 import type { Logger } from "pino";
 import type { EvalCache } from "../types.js";
 import { StockfishWorker } from "./stockfishWorker.js";

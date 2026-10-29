@@ -8,7 +8,7 @@ import type {
     MoveHistoryEntry,
     PlayerColor,
     TacticalTheme,
-} from "../contracts.js";
+} from "@chessverse/contracts";
 import type {
     CandidatePositionSnapshot,
     EvaluatedCandidate,

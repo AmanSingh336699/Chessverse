@@ -1,4 +1,4 @@
-import type { GamePhase } from "../contracts.js";
+import type { GamePhase } from "@chessverse/contracts";
 import type { Chess } from "chess.js";
 import { queensOffBoard, totalMaterial } from "../utils/chess.js";
 

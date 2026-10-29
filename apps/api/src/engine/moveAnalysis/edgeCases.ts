@@ -1,7 +1,7 @@
 import type {
   MoveAnalysisDisplayMode,
   MoveClassification,
-} from "../../contracts.js";
+} from "@chessverse/contracts";
 import { Chess } from "chess.js";
 import { totalMaterial } from "../../utils/chess.js";
 

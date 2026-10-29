@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import type { Difficulty, PlayerColor } from "../contracts";
+import type { Difficulty, PlayerColor } from "@chessverse/contracts";
 
 interface SideSelectionDialogProps {
   open: boolean;

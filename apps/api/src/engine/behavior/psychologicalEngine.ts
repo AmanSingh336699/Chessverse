@@ -3,7 +3,7 @@ import type {
   FilteredCandidate,
   SharedBehaviorContext,
 } from "../../types.js";
-import type { OpponentPressureModel } from "../../contracts.js";
+import type { OpponentPressureModel } from "@chessverse/contracts";
 
 export interface PsychologicalAnalysis {
   score: number;

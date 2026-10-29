@@ -1,5 +1,5 @@
 
-import type { Difficulty, EngineState, GamePhase } from "../contracts.js";
+import type { Difficulty, EngineState, GamePhase } from "@chessverse/contracts";
 import type { DifficultyProfile, EvaluatedCandidate } from "../types.js";
 
 

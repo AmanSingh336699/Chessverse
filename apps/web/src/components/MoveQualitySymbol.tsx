@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import type {
   MoveAnalysisDisplayMode,
   MoveClassification,
-} from "../contracts";
+} from "@chessverse/contracts";
 
 interface MoveQualitySymbolProps {
   classification: MoveClassification | null | undefined;

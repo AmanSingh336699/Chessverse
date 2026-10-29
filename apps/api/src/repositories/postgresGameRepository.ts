@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import type { Pool } from "pg";
-import type { EngineState, MoveHistoryEntry } from "../contracts.js";
+import type { EngineState, MoveHistoryEntry } from "@chessverse/contracts";
 import { gamesTable, movesTable } from "../db/schema.js";
 import type { EngineStatDelta, PersistentGameRepository, StoredGame } from "../types.js";
 

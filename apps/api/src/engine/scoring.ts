@@ -1,4 +1,4 @@
-import type { CandidateMove, EngineMode, EngineState, GamePhase } from "../contracts.js";
+import type { CandidateMove, EngineMode, EngineState, GamePhase } from "@chessverse/contracts";
 import type { EvaluatedCandidate } from "../types.js";
 import { clamp } from "./difficulty.js";
 import {

@@ -3,7 +3,7 @@ import { dirname, extname, resolve } from "path";
 import { createRequire } from "module";
 import { spawn, type ChildProcessWithoutNullStreams } from "child_process";
 import { createInterface, type Interface } from "readline";
-import type { CandidateMove } from "../contracts.js";
+import type { CandidateMove } from "@chessverse/contracts";
 import type { Logger } from "pino";
 import { env } from "../config/env.js";
 import type { AnalysisResult, WorkerState } from "../types.js";

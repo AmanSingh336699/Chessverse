@@ -1,4 +1,4 @@
-import type { CandidateMove, GambitState, GamePhase, PlayerColor } from "../../contracts.js";
+import type { CandidateMove, GambitState, GamePhase, PlayerColor } from "@chessverse/contracts";
 import { Chess } from "chess.js";
 import {
   createOfferedGambitState,

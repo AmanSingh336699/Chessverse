@@ -3,16 +3,20 @@
   "version": "1.0.0",
   "private": true,
   "description": "Production-grade chess AI web application",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "npm --prefix apps/api run dev",
-    "dev:api": "npm --prefix apps/api run dev",
-    "dev:web": "npm --prefix apps/web run dev",
-    "build": "npm --prefix apps/api run build && npm --prefix apps/web run build",
-    "typecheck": "npm --prefix apps/api run typecheck && npm --prefix apps/web run typecheck",
-    "test": "npm --prefix apps/api run test && npm --prefix apps/web run test",
-    "db:generate": "npm --prefix apps/api run db:generate",
-    "db:push": "npm --prefix apps/api run db:push",
-    "db:studio": "npm --prefix apps/api run db:studio"
+    "dev": "npm --workspace=@chessverse/api run dev",
+    "dev:api": "npm --workspace=@chessverse/api run dev",
+    "dev:web": "npm --workspace=@chessverse/web run dev",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "db:generate": "npm --workspace=@chessverse/api run db:generate",
+    "db:push": "npm --workspace=@chessverse/api run db:push",
+    "db:studio": "npm --workspace=@chessverse/api run db:studio"
   },
   "engines": {
     "node": ">=20.0.0"

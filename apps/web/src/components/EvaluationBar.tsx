@@ -4,7 +4,7 @@ import type {
     MoveAnalysisDisplayMode,
     MoveClassification,
     PlayerColor,
-} from "../contracts";
+} from "@chessverse/contracts";
 import { getMoveQualityVisual } from "./MoveQualitySymbol";
 
 interface EvaluationBarProps {

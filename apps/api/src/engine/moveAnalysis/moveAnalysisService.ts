@@ -4,7 +4,7 @@ import type {
   MoveAnalysisResult,
   PlayerColor,
   RecommendedMove,
-} from "../../contracts.js";
+} from "@chessverse/contracts";
 import type { Logger } from "pino";
 import type { AnalysisService } from "../analysisService.js";
 import type { WorkerPool } from "../workerPool.js";

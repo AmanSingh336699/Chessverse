@@ -1,4 +1,4 @@
-import type { TrapGrade, TrapSequenceState } from "../../contracts.js";
+import type { TrapGrade, TrapSequenceState } from "@chessverse/contracts";
 import type { FilteredCandidate, SharedBehaviorContext } from "../../types.js";
 import { Chess } from "chess.js";
 import {

@@ -1,4 +1,4 @@
-import type { GameSnapshot, GameStatus, MoveHistoryEntry, PlayerColor } from "../contracts";
+import type { GameSnapshot, GameStatus, MoveHistoryEntry, PlayerColor } from "@chessverse/contracts";
 import { Chess, type Square } from "chess.js";
 
 const PIECE_VALUES: Record<string, number> = {

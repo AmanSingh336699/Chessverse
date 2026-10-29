@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { MoveHistoryEntry, PlayerColor, GameStatus } from "../contracts";
+import type { MoveHistoryEntry, PlayerColor, GameStatus } from "@chessverse/contracts";
 
 interface EffectsLayerProps {
   lastMove: MoveHistoryEntry | null;

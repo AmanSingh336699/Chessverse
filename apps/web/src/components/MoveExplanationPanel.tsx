@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import type { MoveAnalysisResult } from "../contracts";
+import type { MoveAnalysisResult } from "@chessverse/contracts";
 import {
   MoveQualitySymbol,
   getMoveQualityVisual,

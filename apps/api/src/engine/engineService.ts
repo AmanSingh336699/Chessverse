@@ -5,7 +5,7 @@ import type {
     EngineState,
     MoveHistoryEntry,
     PlayerColor,
-} from "../contracts.js";
+} from "@chessverse/contracts";
 import {
     chooseCandidate,
     getBehaviorScale,

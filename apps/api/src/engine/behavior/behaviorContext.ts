@@ -4,7 +4,7 @@ import type {
     GamePhase,
     PlayerColor,
     TacticalTheme,
-} from "../../contracts.js";
+} from "@chessverse/contracts";
 import { Chess } from "chess.js";
 import type {
     CandidatePhaseTag,
@@ -13,7 +13,7 @@ import type {
     SharedBehaviorContext,
     StockfishTruthLayer,
 } from "../../types.js";
-import type { CandidateMove, MoveHistoryEntry } from "../../contracts.js";
+import type { CandidateMove, MoveHistoryEntry } from "@chessverse/contracts";
 import type { Logger } from "pino";
 import { totalMaterial, uciToMoveShape } from "../../utils/chess.js";
 import {

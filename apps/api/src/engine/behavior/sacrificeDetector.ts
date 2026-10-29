@@ -1,4 +1,4 @@
-import type { SacrificeTrackingState, SacrificeType } from "../../contracts.js";
+import type { SacrificeTrackingState, SacrificeType } from "@chessverse/contracts";
 import type { FilteredCandidate, SharedBehaviorContext } from "../../types.js";
 import {
     attackedKingZoneCount,

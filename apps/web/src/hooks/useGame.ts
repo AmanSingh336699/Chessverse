@@ -9,7 +9,7 @@ import type {
   PlayerMoveResponse,
   ResignResponse,
   UndoRequest,
-} from "../contracts";
+} from "@chessverse/contracts";
 import { Chess } from "chess.js";
 import { api } from "../api/client";
 import {

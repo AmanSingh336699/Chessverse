@@ -4,7 +4,7 @@ import type { AnalysisService } from "./analysisService.js";
 import type { WorkerPool } from "./workerPool.js";
 import { getDifficultyProfile } from "./difficulty.js";
 import { detectGamePhase } from "./phaseDetector.js";
-import type { Difficulty, EngineState } from "../contracts.js";
+import type { Difficulty, EngineState } from "@chessverse/contracts";
 
 export class SpeculationEngine {
   private activeJobs = new Map<string, AbortController>();

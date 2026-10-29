@@ -6,7 +6,7 @@ import {
   moveRequestSchema,
   playerMoveRequestSchema,
   undoRequestSchema,
-} from "./contracts.js";
+} from "@chessverse/contracts";
 import { createDatabase } from "./db/client.js";
 import { env } from "./config/env.js";
 import { logger } from "./utils/logger.js";
@@ -44,7 +44,7 @@ export const buildServer = async () => {
   const repository = new HybridGameRepository(app.log, persistentRepository);
   const validationService = new ValidationService();
   const cache = await createEvalCache<number>(env.REDIS_URL, app.log);
-  const candidateCache = await createEvalCache<import("./contracts.js").CandidateMove[]>(env.REDIS_URL, app.log);
+  const candidateCache = await createEvalCache<import("@chessverse/contracts").CandidateMove[]>(env.REDIS_URL, app.log);
   const workerPool = new WorkerPool(app.log);
   await workerPool.start();
   const analysisService = new AnalysisService(app.log, cache, candidateCache);

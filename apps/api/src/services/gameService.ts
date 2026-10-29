@@ -1,4 +1,4 @@
-import { defaultEngineState, type CreateGameRequest, type MoveHistoryEntry, type PlayerColor, type PlayerMoveRequest, type UndoRequest } from "../contracts.js";
+import { defaultEngineState, type CreateGameRequest, type MoveHistoryEntry, type PlayerColor, type PlayerMoveRequest, type UndoRequest } from "@chessverse/contracts";
 import { Chess } from "chess.js";
 import { randomUUID } from "node:crypto";
 import type { GameRepository, StoredGame } from "../types.js";

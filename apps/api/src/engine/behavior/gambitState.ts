@@ -1,4 +1,4 @@
-import type { GambitState, PlayerColor } from "../../contracts.js";
+import type { GambitState, PlayerColor } from "@chessverse/contracts";
 import { Chess } from "chess.js";
 import { materialForColor } from "../../utils/chess.js";
 

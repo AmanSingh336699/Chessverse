@@ -5,7 +5,7 @@ import type {
   MoveClassification,
   MoveHistoryEntry,
   PlayerColor,
-} from "../contracts";
+} from "@chessverse/contracts";
 import { motion, AnimatePresence } from "framer-motion";
 import { MoveQualitySymbol, getMoveQualityVisual } from "./MoveQualitySymbol";
 import { MoveExplanationPanel } from "./MoveExplanationPanel";

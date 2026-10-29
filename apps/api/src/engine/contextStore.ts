@@ -1,5 +1,5 @@
-import type { EngineState } from "../contracts.js";
-import { defaultEngineState } from "../contracts.js";
+import type { EngineState } from "@chessverse/contracts";
+import { defaultEngineState } from "@chessverse/contracts";
 import Redis from "ioredis";
 import type { Logger } from "pino";
 import { env } from "../config/env.js";

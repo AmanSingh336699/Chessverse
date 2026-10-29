@@ -1,4 +1,4 @@
-import type { PlayerColor } from "../contracts.js";
+import type { PlayerColor } from "@chessverse/contracts";
 import { Chess, type Square } from "chess.js";
 import type { StatusSnapshot } from "../types.js";
 

@@ -1,4 +1,4 @@
-import type { MoveClassification } from "../../contracts.js";
+import type { MoveClassification } from "@chessverse/contracts";
 
 export interface ClassificationThresholds {
   bestMax: number;
