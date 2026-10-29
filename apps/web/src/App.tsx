@@ -299,8 +299,9 @@ const App = () => {
       ? controller.premoveSquares.map((square) => [
           square,
           {
-            background: "rgba(56,189,248,0.24)",
-            boxShadow: "inset 0 0 0 2px rgba(86,208,255,0.58)",
+            background: "rgba(6,182,212,0.22)",
+            boxShadow: "inset 0 0 0 2.5px #06b6d4, 0 0 14px rgba(6,182,212,0.35)",
+            borderRadius: "4px",
           },
         ])
       : []),
@@ -385,6 +386,17 @@ const App = () => {
       setReviewMode(false);
     }
   }, [controller.game?.gameId, controller.game?.moveHistory.length, controller.game?.status]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        controller.clearPremove();
+        controller.clearTargets();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [controller]);
 
   const handleReviewGame = () => {
     if (!controller.game || controller.game.moveHistory.length === 0) {
@@ -521,8 +533,29 @@ const App = () => {
                   {controller.orientation} side
                 </span>
                 {controller.premoveStatusText ? (
-                  <span className="inline-flex w-fit rounded-full border border-cyan-300/20 bg-cyan-400/10 px-2.5 py-1 sm:px-3 sm:py-1.5 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100">
-                    {controller.premoveStatusText}
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/40 bg-cyan-500/15 px-3 py-1 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-cyan-200 shadow-[0_0_12px_rgba(6,182,212,0.25)] animate-pulse">
+                    <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+                    <span>{controller.premoveStatusText}</span>
+                    <button
+                      type="button"
+                      onClick={() => controller.clearPremove()}
+                      className="ml-1 text-cyan-300 hover:text-white transition-colors cursor-pointer text-xs"
+                      title="Cancel premove (or right-click anywhere on the board)"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ) : null}
+                {controller.premoveNotice ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/35 bg-amber-500/15 px-3 py-1 text-[10px] sm:text-[11px] font-medium text-amber-200 shadow-[0_0_12px_rgba(245,158,11,0.2)]">
+                    <span>⚠️ {controller.premoveNotice}</span>
+                    <button
+                      type="button"
+                      onClick={() => controller.clearPremoveNotice()}
+                      className="ml-1 text-amber-300 hover:text-white transition-colors cursor-pointer text-xs"
+                    >
+                      ✕
+                    </button>
                   </span>
                 ) : null}
               </div>
@@ -594,14 +627,22 @@ const App = () => {
 
               {/* Chessboard Stage Card */}
               <div
-                className="relative grid place-items-center w-full max-w-fit rounded-[20px] sm:rounded-[30px] border border-white/6 bg-[linear-gradient(180deg,rgba(11,24,39,0.82),rgba(9,18,31,0.96))] p-1.5 sm:p-3 lg:p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  controller.handleSquareRightClick();
+                }}
+                className="relative grid place-items-center w-full max-w-fit rounded-[20px] sm:rounded-[30px] border border-white/6 bg-[linear-gradient(180deg,rgba(11,24,39,0.82),rgba(9,18,31,0.96))] p-1.5 sm:p-3 lg:p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] select-none"
               >
                 <div className="pointer-events-none absolute inset-2.5 sm:inset-4 rounded-2xl sm:rounded-3xl border border-cyan-300/8" />
                 <Chessboard
                   id="chessverse-board"
                   position={reviewFen}
                   arePiecesDraggable={boardInteractive}
+                  isDraggablePiece={({ piece }) =>
+                    piece.startsWith(controller.playerColor === "white" ? "w" : "b")
+                  }
                   arePremovesAllowed={true}
+                  clearPremovesOnRightClick={true}
                   boardOrientation={controller.orientation}
                   animationDuration={controller.boardAnimationDuration}
                   boardWidth={boardWidth}

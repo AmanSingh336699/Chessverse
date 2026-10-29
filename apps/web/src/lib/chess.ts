@@ -16,6 +16,18 @@ const SQUARE_PATTERN = /^[a-h][1-8]$/;
 
 export const isSquare = (value: string): value is Square => SQUARE_PATTERN.test(value);
 
+export const swapFenTurn = (fen: string): string => {
+  const parts = fen.trim().split(/\s+/);
+  if (parts.length < 2) {
+    return fen;
+  }
+  parts[1] = parts[1] === "w" ? "b" : "w";
+  if (parts[3] && parts[3] !== "-") {
+    parts[3] = "-";
+  }
+  return parts.join(" ");
+};
+
 export const toChessMoveInput = (
   from: string,
   to: string,
@@ -26,6 +38,71 @@ export const toChessMoveInput = (
   }
 
   return promotion ? { from, to, promotion } : { from, to };
+};
+
+export interface PremoveValidationResult {
+  legal: boolean;
+  san?: string;
+  uci?: string;
+  capturedSquare?: string | null;
+  resultingFen?: string;
+}
+
+export const validatePremoveLegality = (
+  fen: string,
+  from: string,
+  to: string,
+  promotion?: PromotionPiece,
+): PremoveValidationResult => {
+  const moveInput = toChessMoveInput(from, to, promotion);
+  if (!moveInput) {
+    return { legal: false };
+  }
+
+  try {
+    const chess = new Chess(fen);
+    const move = chess.move(moveInput);
+    if (!move) {
+      return { legal: false };
+    }
+
+    return {
+      legal: true,
+      san: move.san,
+      uci: `${move.from}${move.to}${move.promotion ?? ""}`,
+      capturedSquare: move.captured ? to : null,
+      resultingFen: chess.fen(),
+    };
+  } catch {
+    return { legal: false };
+  }
+};
+
+export const describePremove = (fen: string, from: string, to: string): string => {
+  if (!isSquare(from)) {
+    return `Premove queued to ${to}`;
+  }
+  try {
+    const chess = new Chess(fen);
+    const piece = chess.get(from);
+    const pieceName =
+      piece?.type === "p"
+        ? "Pawn"
+        : piece?.type === "n"
+          ? "Knight"
+          : piece?.type === "b"
+            ? "Bishop"
+            : piece?.type === "r"
+              ? "Rook"
+              : piece?.type === "q"
+                ? "Queen"
+                : piece?.type === "k"
+                  ? "King"
+                  : "Piece";
+    return `Premove queued: ${pieceName} to ${to}`;
+  } catch {
+    return `Premove queued: ${from} to ${to}`;
+  }
 };
 
 export const statusLabel = (status: GameStatus): string => {
@@ -55,6 +132,33 @@ export const legalTargetsForSquare = (fen: string, square: string): string[] => 
 
   const chess = new Chess(fen);
   return chess.moves({ square, verbose: true }).map((move) => move.to);
+};
+
+export const pseudoLegalTargetsForSquare = (
+  fen: string,
+  square: string,
+  playerSide: "w" | "b",
+): string[] => {
+  if (!isSquare(square)) {
+    return [];
+  }
+
+  try {
+    const chess = new Chess(fen);
+    const piece = chess.get(square);
+    if (!piece || piece.color !== playerSide) {
+      return [];
+    }
+
+    if (chess.turn() === playerSide) {
+      return chess.moves({ square, verbose: true }).map((move) => move.to);
+    }
+
+    const swapped = new Chess(swapFenTurn(fen));
+    return swapped.moves({ square, verbose: true }).map((move) => move.to);
+  } catch {
+    return [];
+  }
 };
 
 export const currentCheckSquare = (fen: string): string | null => {

@@ -17,18 +17,22 @@ import { api } from "../api/client";
 import {
   boardFen,
   currentCheckSquare,
+  describePremove,
   isSquare,
   lastMoveSquares,
   legalTargetsForSquare,
   materialBalance,
   promotionFromPiece,
+  pseudoLegalTargetsForSquare,
   toChessMoveInput,
+  validatePremoveLegality,
   type PromotionPiece,
 } from "../lib/chess";
 
 const MIN_THINKING_DELAY_MS = 500;
 const AI_MOVE_ANIMATION_MS = 320;
-const PREMOVE_ANIMATION_MS = 210;
+const PREMOVE_TRIGGER_DELAY_MS = 50;
+const PREMOVE_ANIMATION_MS = 180;
 const UNDO_STEP_MS = 150;
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const ANALYSIS_POLL_DELAY_MS = 1200;
@@ -89,26 +93,6 @@ const readStoredGameId = (): string | null => {
 const countHumanMoves = (history: MoveHistoryEntry[]) =>
   history.filter((entry) => entry.player === "human").length;
 
-const describePremove = (fen: string, from: string, to: string) => {
-  const chess = new Chess(fen);
-  const piece = isSquare(from) ? chess.get(from) : null;
-  const pieceName =
-    piece?.type === "p"
-      ? "Pawn"
-      : piece?.type === "n"
-        ? "Knight"
-        : piece?.type === "b"
-          ? "Bishop"
-          : piece?.type === "r"
-            ? "Rook"
-            : piece?.type === "q"
-              ? "Queen"
-              : piece?.type === "k"
-                ? "King"
-                : "Piece";
-
-  return `Premove queued - ${pieceName} to ${to}`;
-};
 
 const isTerminalStatus = (status: GameSnapshot["status"] | undefined) =>
   Boolean(status && ["checkmate", "stalemate", "draw", "resigned"].includes(status));
@@ -163,6 +147,8 @@ export const useGameController = () => {
   const [undoPulseVisible, setUndoPulseVisible] = useState(false);
   const [premoveSquares, setPremoveSquares] = useState<[string, string] | null>(null);
   const [premoveStatusText, setPremoveStatusText] = useState<string | null>(null);
+  const [premoveNotice, setPremoveNotice] = useState<string | null>(null);
+  const premoveNoticeTimerRef = useRef<number | null>(null);
   const capturedSquareRef = useRef<string | null>(null);
   const bootstrappedRef = useRef(false);
   const premoveRef = useRef<{
@@ -209,6 +195,11 @@ export const useGameController = () => {
     setPremoveExecuting(false);
     capturedSquareRef.current = null;
     clearPremove();
+    setPremoveNotice(null);
+    if (premoveNoticeTimerRef.current !== null) {
+      window.clearTimeout(premoveNoticeTimerRef.current);
+      premoveNoticeTimerRef.current = null;
+    }
     setAnalysisPendingKeys([]);
     if (analysisPollTimerRef.current !== null) {
       window.clearTimeout(analysisPollTimerRef.current);
@@ -532,7 +523,7 @@ export const useGameController = () => {
 
     setSelectedSquare(square);
     if (thinking) {
-      setLegalTargets([]);
+      setLegalTargets(pseudoLegalTargetsForSquare(displayedFen, square, playerSide));
       return;
     }
 
@@ -551,6 +542,7 @@ export const useGameController = () => {
     };
     setPremoveSquares([sourceSquare, targetSquare]);
     setPremoveStatusText(describePremove(displayedFen, sourceSquare, targetSquare));
+    setPremoveNotice(null);
     setSelectedSquare(null);
     setLegalTargets([]);
   };
@@ -574,7 +566,7 @@ export const useGameController = () => {
         clearPremove(true);
         window.setTimeout(() => {
           executePremove(response.game, queued);
-        }, AI_MOVE_ANIMATION_MS);
+        }, PREMOVE_TRIGGER_DELAY_MS);
       }
     }
 
@@ -743,50 +735,50 @@ export const useGameController = () => {
     currentGame: GameSnapshot,
     queued: { from: string; to: string; promotion?: PromotionPiece },
   ) => {
-    const preview = new Chess(currentGame.fen);
-    const moveInput = toChessMoveInput(queued.from, queued.to, queued.promotion);
-    if (!moveInput) {
-      setPremoveExecuting(false);
-      return;
-    }
+    const validation = validatePremoveLegality(
+      currentGame.fen,
+      queued.from,
+      queued.to,
+      queued.promotion,
+    );
 
-    let move;
-    try {
-      move = preview.move(moveInput);
-    } catch (e) {
+    if (!validation.legal || !validation.resultingFen) {
       setPremoveExecuting(false);
-      return;
-    }
-
-    if (!move) {
-      setPremoveExecuting(false);
+      setPremoveNotice("Premove cancelled: move is no longer legal in this position");
+      if (premoveNoticeTimerRef.current !== null) {
+        window.clearTimeout(premoveNoticeTimerRef.current);
+      }
+      premoveNoticeTimerRef.current = window.setTimeout(() => {
+        setPremoveNotice(null);
+      }, 3500);
       return;
     }
 
     setSelectedSquare(null);
     setLegalTargets([]);
     setCaptureTargets([]);
-    setOptimisticFen(preview.fen());
+    setOptimisticFen(validation.resultingFen);
     setLastMove({
       moveNumber: currentGame.moveHistory.length + 1,
       player: "human",
       fenBefore: currentGame.fen,
-      fenAfter: preview.fen(),
-      moveUci: `${move.from}${move.to}${move.promotion ?? ""}`,
-      moveNotation: move.san,
+      fenAfter: validation.resultingFen,
+      moveUci: validation.uci ?? `${queued.from}${queued.to}${queued.promotion ?? ""}`,
+      moveNotation: validation.san ?? queued.to,
       evaluation: currentGame.evaluation,
       engineMode: null,
       timestamp: new Date().toISOString(),
     });
-    capturedSquareRef.current = move.captured ? queued.to : null;
+    capturedSquareRef.current = validation.capturedSquare ?? null;
     setThinking(true);
     setError(null);
     setPremoveExecuting(true);
+    setPremoveNotice(null);
     void submitMove(
       currentGame,
       queued.from,
       queued.to,
-      move.promotion as PromotionPiece | undefined,
+      queued.promotion,
     );
   };
 
@@ -797,6 +789,15 @@ export const useGameController = () => {
     }
 
     if (thinking) {
+      const candidateTargets = pseudoLegalTargetsForSquare(
+        displayedFen,
+        sourceSquare,
+        playerSide,
+      );
+      if (!candidateTargets.includes(targetSquare)) {
+        return false;
+      }
+
       queuePremove(sourceSquare, targetSquare, promotionFromPiece(piece));
       return true;
     }
@@ -844,35 +845,28 @@ export const useGameController = () => {
       const board = new Chess(displayedFen);
       const piece = isSquare(square) ? board.get(square) : null;
 
-      if (premoveRef.current && !selectedSquare) {
-        if (piece?.color === playerSide) {
-          clearPremove();
-          setSelectedSquare(square);
-          setLegalTargets([]);
-          return;
-        }
-
-        clearPremove(true);
-        return;
-      }
-
-      if (selectedSquare && selectedSquare !== square) {
+      // 1. If clicking a candidate target for previously selected piece
+      if (selectedSquare && legalTargets.includes(square)) {
         queuePremove(selectedSquare, square);
         return;
       }
 
+      // 2. If clicking the already selected piece, deselect
       if (selectedSquare === square) {
         setSelectedSquare(null);
         setLegalTargets([]);
         return;
       }
 
+      // 3. If clicking own piece, select and compute candidate targets
       if (piece?.color === playerSide) {
         setSelectedSquare(square);
-        setLegalTargets([]);
+        const candidates = pseudoLegalTargetsForSquare(displayedFen, square, playerSide);
+        setLegalTargets(candidates);
         return;
       }
 
+      // 4. Clicking anywhere else clears premove and selection
       clearPremove(true);
       return;
     }
@@ -1100,9 +1094,7 @@ export const useGameController = () => {
     ) => commitMove(sourceSquare, targetSquare, piece),
     handleSquareClick,
     handleSquareRightClick: () => {
-      if (thinking && (premoveRef.current || selectedSquare)) {
-        clearPremove(true);
-      }
+      clearPremove(true);
     },
     startNewGame,
     confirmNewGame: openFreshGameDialog,
@@ -1116,6 +1108,8 @@ export const useGameController = () => {
     capturedSquare: capturedSquareRef.current,
     premoveSquares,
     premoveStatusText,
+    premoveNotice,
+    clearPremoveNotice: () => setPremoveNotice(null),
     premoveArrow:
       premoveSquares && premoveSquares[0] && premoveSquares[1]
         ? ([premoveSquares[0], premoveSquares[1], "#56d0ff"] as const)

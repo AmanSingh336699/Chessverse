@@ -553,13 +553,24 @@ erDiagram
 
 ## Chapter 14: State Management and Error Handling
 
-### 14.1 Frontend State Architecture
+### 14.1 Frontend State Architecture & Chess.com-Grade Premove Engine
 - **Server Cache & Mutations:** TanStack React Query (`useMutation`) manages API interactions.
 - **Local State Machine (`useGame.ts`):** 
   - `chessRef`: Active `chess.js` instance.
   - `optimisticFen`: Immediate UI update before server responds.
-  - `premoveQueue`: Stores planned human moves during AI turns.
-  - `selectedSquare` & `legalTargets`: Visual board highlights.
+  - `premoveRef`: Stores planned human moves during AI turns.
+  - `premoveSquares` & `premoveArrow`: Highlights and connects queued premove squares in glowing `#06b6d4` cyan.
+  - `selectedSquare` & `legalTargets`: Visual board highlights. During opponent's turn, candidate premove targets are computed via `pseudoLegalTargetsForSquare` using turn-swapped FEN inspection.
+- **Premove Engine (Smooth as Chess.com):**
+  - **Click-to-Premove & Drag-to-Premove:** Picking up or clicking own pieces while AI is thinking dynamically calculates pseudo-legal targets and displays candidate dots.
+  - **Near-Instant 50ms Trigger:** Reduces AI move transition delay from 320ms to 50ms for instant 0.1s responsive premove execution.
+  - **Strict Legality Validation:** When AI move arrives, `validatePremoveLegality` checks whether the premove is strictly valid in the newly arrived position. If legal, it executes immediately; if refuted or illegal, it cancels cleanly and displays a friendly notice (`⚠️ Premove cancelled: move is no longer legal in this position`).
+  - **Multi-Vector Cancellation:**
+    - Right-click anywhere on the board container cancels premoves immediately and prevents default browser context menus.
+    - Pressing `Escape` cancels premoves and clears piece selection.
+    - Click-away on the board cancels premoves.
+    - Dragging another piece replaces existing queued premoves seamlessly.
+  - **Piece Drag Isolation (`isDraggablePiece`):** Prevents dragging opponent pieces during active turns and premove phases.
 
 ### 14.2 Backend Error Normalization
 - Custom `HttpError` class carrying HTTP status codes and JSON payloads.
@@ -584,19 +595,25 @@ erDiagram
 
 ### 16.1 Current Test Infrastructure
 - **Test Runners Configured:** Vitest is configured across all workspaces (`packages/contracts`, `apps/api`, `apps/web`).
-- **Automated Test Suites (40 passing tests across 8 test suites):**
-  - `@chessverse/contracts`: `src/index.test.ts` (10 tests: schema validation, plies, player colors, move requests).
-  - `@chessverse/web`: `src/lib/chess.test.ts` (6 tests: FEN parsing, legal moves, check squares, piece values).
+- **Automated Test Suites (112 passing tests across 14 test suites):**
+  - `@chessverse/contracts`: `src/index.test.ts` (17 tests: auth schemas, profile, login, history, and style profiles).
+  - `@chessverse/web`: `src/lib/chess.test.ts` (10 tests: FEN parsing, legal moves, check squares, piece values, premove swap turn, candidate targets, validation, descriptions).
   - `@chessverse/api`:
-    - `src/engine/phaseDetector.test.ts` (3 tests: opening, middlegame, endgame detection).
-    - `src/services/gameService.reliability.test.ts` (6 tests: clientMoveId idempotency, 409 concurrent move conflicts, stale plies, illegal move fallback to Stockfish/legal, 503 engine down).
-    - `src/repositories/hybridGameRepository.test.ts` (3 tests: DB down memory fallback, write-behind queue exponential backoff, flush() draining on shutdown).
-    - `src/engine/contextStore.test.ts` (4 tests: lock acquisition, long-search heartbeat renewal, concurrency protection, Lua compare-and-delete release).
-    - `src/engine/workerPool.test.ts` (3 tests: mid-search crash recovery and task retry, dedicated worker reservation against background tasks, interactive preemption via stopSearch()).
-    - `src/server.test.ts` (5 tests: /health, /ready engine/DB status, 1MB body limit 413, Helmet security headers, rate limit 429).
+    - `src/server.test.ts` (12 tests: health, ready, rate limit, styles, auth register, login, me, games auth).
+    - `src/services/authService.test.ts` (4 tests: Scrypt hashing, verify, HMAC tokens, create user).
+    - `src/engine/style/styleProfiles.test.ts` (11 tests).
+    - `src/engine/style/styleEngine.test.ts` (12 tests).
+    - `src/engine/style/selfPlayRunner.test.ts` (4 tests).
+    - `src/engine/stockfishPool.test.ts` (10 tests).
+    - `src/repositories/writeBehindQueue.test.ts` (6 tests).
+    - `src/repositories/hybridGameRepository.test.ts` (6 tests).
+    - `src/repositories/idempotencyStore.test.ts` (4 tests).
+    - `src/openingBook/polyglotBook.test.ts` (4 tests).
+    - `src/services/gameService.test.ts` (6 tests).
+    - `src/services/gameLock.test.ts` (6 tests).
 - **Quality Verification Performed:**
   - Full TypeScript strict typechecking executed (`npm run typecheck`): **Passed with 0 errors** on all workspaces.
-  - Production builds verified (`npm run build`): **Passed with 0 errors** on both `apps/api` (tsc) and `apps/web` (Vite).
+  - Production builds verified (`npm run build`): **Passed with 0 errors** across all workspaces.
 
 ---
 
