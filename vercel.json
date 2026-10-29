@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm install --include=optional && npm install --no-save lightningcss-linux-x64-gnu @tailwindcss/oxide-linux-x64-gnu --workspace=@chessverse/web",
   "buildCommand": "npm run build --workspace=@chessverse/web",
   "outputDirectory": "apps/web/dist",
   "framework": "vite",
