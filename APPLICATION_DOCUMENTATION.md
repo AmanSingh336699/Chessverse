@@ -86,22 +86,27 @@ A monorepo structure containing:
 
 | Feature Name | Module | Frontend File(s) | Backend File(s) | Endpoints / Mechanism | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **New Game Creation** | Game Lifecycle | `App.tsx`, `SideSelectionDialog.tsx`, `useGame.ts` | `server.ts`, `gameService.ts` | `POST /games` | **Verified Complete** |
-| **Player Move Submission** | Core Gameplay | `App.tsx`, `useGame.ts`, `client.ts` | `server.ts`, `gameService.ts`, `chess.ts` | `POST /games/:id/player-move` | **Verified Complete** |
-| **AI Behavioral Move Decision** | Engine Intelligence | `GameSidebar.tsx` | `engineService.ts`, `behaviorEngine.ts`, `scoring.ts` | Internal / `POST /engine/move` | **Verified Complete** |
-| **Stockfish Worker Pool** | Process Management | N/A | `workerPool.ts`, `stockfishWorker.ts` | Worker IPC, Heartbeats | **Verified Complete** |
-| **Opening Book (Polyglot)** | Engine Intelligence | `GameSidebar.tsx` | `polyglotBook.ts`, `polyglotRandom.ts` | Binary `.bin` reader | **Verified Complete** |
-| **Move Quality Analysis** | Analysis & Coaching | `MoveQualitySymbol.tsx`, `MoveExplanationPanel.tsx` | `moveAnalysisService.ts`, `classifyMove.ts`, `explainers.ts` | Asynchronous Job via `setImmediate` | **Verified Complete** |
-| **Brilliant Move Detection** | Analysis & Coaching | `MoveQualitySymbol.tsx` | `brilliantDetector.ts` | Material Sacrifice + Eval Delta | **Verified Complete** |
-| **Tactical Explainers** | Analysis & Coaching | `MoveExplanationPanel.tsx`, `GameSidebar.tsx` | `explainers.ts`, `edgeCases.ts` | Tactical Detectors (Fork, Pin, etc.) | **Verified Complete** |
-| **Speculative Pondering** | Performance & AI | N/A | `speculation.ts`, `analysisService.ts` | Background Speculation Jobs | **Verified Complete** |
-| **Distributed Context Store** | State & Concurrency | N/A | `contextStore.ts`, `cache.ts` | Redis key-value & locking | **Verified Complete** |
-| **Hybrid Game Repository** | Persistence | N/A | `hybridGameRepository.ts`, `postgresGameRepository.ts`, `schema.ts` | Drizzle ORM + In-Memory Fallback | **Verified Complete** |
-| **Undo Move System** | Game Controls | `GameControls.tsx`, `useGame.ts` | `server.ts`, `gameService.ts` | `POST /games/:id/undo` | **Verified Complete** |
-| **Resign & Draw Offers** | Game Lifecycle | `ConfirmDialog.tsx`, `GameControls.tsx` | `server.ts`, `gameService.ts` | `POST /games/:id/resign`, `POST /games/:id/draw-offer` | **Verified Complete** |
-| **Premoves Execution** | Frontend UX | `App.tsx`, `useGame.ts`, `client.ts` | N/A | Client queue & optimistic execution | **Verified Complete** |
-| **Dynamic Evaluation Bar** | Visualization | `EvaluationBar.tsx` | `server.ts`, `gameService.ts` | Math.tanh Sigmoid curve | **Verified Complete** |
-| **Visual Effects Layer** | Polish & UX | `EffectsLayer.tsx` | N/A | Canvas / DOM Particle Animations | **Verified Complete** |
+| **Shared Zod Contracts** | Monorepo Core | N/A | `packages/contracts/src/index.ts` | `@chessverse/contracts` package | **Verified (9 passing tests)** |
+| **Game Phase Detector** | Engine Intelligence | N/A | `apps/api/src/engine/phaseDetector.ts` | Opening / Middlegame / Endgame detector | **Verified (3 passing tests)** |
+| **Web Chess Utilities** | Frontend Core | `apps/web/src/lib/chess.ts` | N/A | Move parsing, check, material balance | **Verified (6 passing tests)** |
+| **Style Profiles (Aggressive, Gambiteer, Tricky, Solid)** | Style Engine | Planned | Planned | Phase 2 implementation | **Planned** |
+| **User Authentication & History** | Auth & Storage | Planned | Planned | Phase 3 implementation | **Planned** |
+| **New Game Creation** | Game Lifecycle | `App.tsx`, `SideSelectionDialog.tsx`, `useGame.ts` | `server.ts`, `gameService.ts` | `POST /games` | **Implemented (untested)** |
+| **Player Move Submission** | Core Gameplay | `App.tsx`, `useGame.ts`, `client.ts` | `server.ts`, `gameService.ts`, `chess.ts` | `POST /games/:id/player-move` | **Implemented (untested)** |
+| **AI Behavioral Move Decision** | Engine Intelligence | `GameSidebar.tsx` | `engineService.ts`, `behaviorEngine.ts`, `scoring.ts` | Internal / `POST /engine/move` | **Implemented (untested)** |
+| **Stockfish Worker Pool** | Process Management | N/A | `workerPool.ts`, `stockfishWorker.ts` | Worker IPC, Heartbeats | **Implemented (untested)** |
+| **Opening Book (Polyglot)** | Engine Intelligence | `GameSidebar.tsx` | `polyglotBook.ts`, `polyglotRandom.ts` | Binary `.bin` reader | **Implemented (untested)** |
+| **Move Quality Analysis** | Analysis & Coaching | `MoveQualitySymbol.tsx`, `MoveExplanationPanel.tsx` | `moveAnalysisService.ts`, `classifyMove.ts`, `explainers.ts` | Asynchronous Job via `setImmediate` | **Implemented (untested)** |
+| **Brilliant Move Detection** | Analysis & Coaching | `MoveQualitySymbol.tsx` | `brilliantDetector.ts` | Material Sacrifice + Eval Delta | **Implemented (untested)** |
+| **Tactical Explainers** | Analysis & Coaching | `MoveExplanationPanel.tsx`, `GameSidebar.tsx` | `explainers.ts`, `edgeCases.ts` | Tactical Detectors (Fork, Pin, etc.) | **Implemented (untested)** |
+| **Speculative Pondering** | Performance & AI | N/A | `speculation.ts`, `analysisService.ts` | Background Speculation Jobs | **Implemented (untested)** |
+| **Distributed Context Store** | State & Concurrency | N/A | `contextStore.ts`, `cache.ts` | Redis key-value & locking | **Implemented (untested)** |
+| **Hybrid Game Repository** | Persistence | N/A | `hybridGameRepository.ts`, `postgresGameRepository.ts`, `schema.ts` | Drizzle ORM + In-Memory Fallback | **Implemented (untested)** |
+| **Undo Move System** | Game Controls | `GameControls.tsx`, `useGame.ts` | `server.ts`, `gameService.ts` | `POST /games/:id/undo` | **Implemented (untested)** |
+| **Resign & Draw Offers** | Game Lifecycle | `ConfirmDialog.tsx`, `GameControls.tsx` | `server.ts`, `gameService.ts` | `POST /games/:id/resign`, `POST /games/:id/draw-offer` | **Implemented (untested)** |
+| **Premoves Execution** | Frontend UX | `App.tsx`, `useGame.ts`, `client.ts` | N/A | Client queue & optimistic execution | **Implemented (untested)** |
+| **Dynamic Evaluation Bar** | Visualization | `EvaluationBar.tsx` | `server.ts`, `gameService.ts` | Math.tanh Sigmoid curve | **Implemented (untested)** |
+| **Visual Effects Layer** | Polish & UX | `EffectsLayer.tsx` | N/A | Canvas / DOM Particle Animations | **Implemented (untested)** |
 | **WebSocket Real-Time Sync** | Real-Time Sync | N/A | `websocket.ts` | `/ws/game/:gameId` | **Unmounted / Incomplete** |
 
 ---
