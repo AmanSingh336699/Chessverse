@@ -19,6 +19,64 @@ import { HomePage } from "./components/HomePage";
 import { useAuth } from "./hooks/useAuth";
 import type { StyleId } from "@chessverse/contracts";
 
+const STYLE_HEADER_META: Record<
+  string,
+  {
+    name: string;
+    tag: string;
+    icon: string;
+    badgeBg: string;
+    badgeBorder: string;
+    badgeText: string;
+    glow: string;
+  }
+> = {
+  aggressive: {
+    name: "Aggressive",
+    tag: "King Attacker",
+    icon: "⚔️",
+    badgeBg: "bg-rose-500/15",
+    badgeBorder: "border-rose-400/35",
+    badgeText: "text-rose-200",
+    glow: "shadow-[0_0_12px_rgba(244,63,94,0.2)]",
+  },
+  solid: {
+    name: "Solid",
+    tag: "Positional Master",
+    icon: "🛡️",
+    badgeBg: "bg-cyan-500/15",
+    badgeBorder: "border-cyan-400/35",
+    badgeText: "text-cyan-200",
+    glow: "shadow-[0_0_12px_rgba(6,182,212,0.2)]",
+  },
+  gambiteer: {
+    name: "Gambiteer",
+    tag: "Romantic Sacrifices",
+    icon: "🎲",
+    badgeBg: "bg-purple-500/15",
+    badgeBorder: "border-purple-400/35",
+    badgeText: "text-purple-200",
+    glow: "shadow-[0_0_12px_rgba(168,85,247,0.2)]",
+  },
+  tricky: {
+    name: "Tricky",
+    tag: "Tactical Swindler",
+    icon: "⚡",
+    badgeBg: "bg-amber-500/15",
+    badgeBorder: "border-amber-400/35",
+    badgeText: "text-amber-200",
+    glow: "shadow-[0_0_12px_rgba(245,158,11,0.2)]",
+  },
+};
+
+const DIFFICULTY_HEADER_META: Record<string, { label: string; depth: number }> = {
+  beginner: { label: "Beginner", depth: 4 },
+  casual: { label: "Casual", depth: 6 },
+  intermediate: { label: "Intermediate", depth: 8 },
+  advanced: { label: "Advanced", depth: 10 },
+  master: { label: "Master", depth: 18 },
+};
+
 const tabs = [
   { id: "info", label: "Intelligence" },
   { id: "moves", label: "Match Log" },
@@ -362,6 +420,22 @@ const App = () => {
           ? "border-cyan-300/35 bg-cyan-400/10 text-cyan-100 shadow-[0_0_36px_rgba(88,215,229,0.14)]"
           : "border-emerald-400/25 bg-emerald-500/10 text-emerald-100";
 
+  const activeStyleKey = (
+    controller.game?.style ??
+    controller.style ??
+    "aggressive"
+  ).toLowerCase();
+  const currentStyle =
+    (STYLE_HEADER_META[activeStyleKey] ?? STYLE_HEADER_META.aggressive)!;
+
+  const activeDiffKey = (
+    controller.game?.difficulty ??
+    controller.difficulty ??
+    "advanced"
+  ).toLowerCase();
+  const currentDiff =
+    (DIFFICULTY_HEADER_META[activeDiffKey] ?? DIFFICULTY_HEADER_META.advanced)!;
+
   const boardInteractive =
     controller.hasLiveGame &&
     !controller.sideSelectionOpen &&
@@ -458,57 +532,81 @@ const App = () => {
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           >
         <section className="flex min-w-0 flex-col gap-3.5 sm:gap-5">
-          {/* Responsive Header */}
-          <header className="grid gap-3 sm:gap-4 rounded-2xl sm:rounded-[34px] border border-white/8 bg-[linear-gradient(180deg,rgba(12,22,36,0.68),rgba(8,16,28,0.34))] p-3.5 sm:px-6 sm:py-5 shadow-[0_24px_80px_rgba(2,8,20,0.24)] backdrop-blur-xl sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-            <div className="max-w-3xl">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-[0.24em] text-gradient-gold">
-                  Chessverse
-                </span>
-                <span className="inline-flex items-center rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-cyan-300">
-                  AI Chess
-                </span>
+          {/* Responsive Executive Header */}
+          <header className="rounded-2xl sm:rounded-3xl border border-white/10 bg-[linear-gradient(135deg,rgba(12,22,36,0.85)_0%,rgba(8,16,28,0.65)_100%)] p-3.5 sm:px-5 sm:py-3.5 shadow-[0_16px_50px_rgba(2,8,20,0.35)] backdrop-blur-xl flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-gradient-gold">
+                    Chessverse Arena
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-cyan-300">
+                    Live
+                  </span>
+                </div>
+                <h1 className="font-display text-base sm:text-xl text-brand-100 font-semibold tracking-tight mt-0.5">
+                  Tactical Arena
+                </h1>
               </div>
-              <h1 className="font-display mt-1 sm:mt-2 text-2xl sm:text-[3.2rem] lg:text-[4.2rem] 2xl:text-[4.8rem] leading-[1.02] sm:leading-[0.94] text-brand-100 drop-shadow-xl sm:max-w-[11ch]">
-                Dangerous chess, with a conscience.
-              </h1>
-              <p className="mt-2 sm:mt-4 max-w-2xl text-xs sm:text-base leading-relaxed text-stone-300/90 hidden sm:block">
-                A premium head-to-head board where the AI opens with venom, hunts for traps, and still knows when to switch into pure technique.
-              </p>
+
+              {/* Match Configuration Badges */}
+              <div className="flex flex-wrap items-center gap-2 pt-1 sm:pt-0 sm:border-l sm:border-white/10 sm:pl-4">
+                {/* Opponent Style Badge */}
+                <div
+                  className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold backdrop-blur-md transition-all ${currentStyle.badgeBorder} ${currentStyle.badgeBg} ${currentStyle.badgeText} ${currentStyle.glow}`}
+                  title={`Opponent Style: ${currentStyle.name} (${currentStyle.tag})`}
+                >
+                  <span className="text-sm">{currentStyle.icon}</span>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="font-bold tracking-wide">{currentStyle.name}</span>
+                    <span className="text-[10px] opacity-80 font-normal hidden sm:inline">({currentStyle.tag})</span>
+                  </div>
+                </div>
+
+                {/* Difficulty Badge */}
+                <div
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-stone-200"
+                  title={`AI Difficulty Level: ${currentDiff.label} (Depth ${currentDiff.depth})`}
+                >
+                  <span className="text-stone-400 text-[10px] uppercase font-bold tracking-wider">Lvl:</span>
+                  <span className="font-semibold text-brand-100">{currentDiff.label}</span>
+                  <span className="text-[10px] text-stone-400 font-mono">D{currentDiff.depth}</span>
+                </div>
+
+                {/* Player Side Badge */}
+                <div
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-stone-200"
+                  title={`You are commanding ${controller.playerColor}`}
+                >
+                  <span className="text-sm leading-none">{controller.playerColor === "white" ? "♔" : "♚"}</span>
+                  <span className="capitalize font-semibold text-brand-100">{controller.playerColor}</span>
+                </div>
+              </div>
             </div>
 
-            <div className="flex flex-row flex-wrap sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 sm:gap-3">
+            {/* Live Status & Driver */}
+            <div className="flex items-center justify-between md:justify-end gap-2.5 sm:gap-3">
+              <div className="hidden xl:flex flex-col text-right">
+                <span className="text-[9px] uppercase tracking-[0.18em] text-stone-500 font-bold">
+                  Engine Driver
+                </span>
+                <span className="font-mono text-xs text-brand-200/90 font-semibold">
+                  {controller.behaviorLabel}
+                </span>
+              </div>
+
               <div
-                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-semibold backdrop-blur-xl ${statusToneClass}`}
+                className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold backdrop-blur-xl ${statusToneClass}`}
               >
                 <span
-                  className={`h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full ${
+                  className={`h-2 w-2 rounded-full ${
                     controller.statusTone === "thinking" ||
                     controller.statusTone === "loading"
                       ? "animate-pulse bg-current"
                       : "bg-current"
                   }`}
                 />
-                {controller.statusText}
-              </div>
-
-              <div className="flex items-center gap-2 text-xs text-stone-300/78">
-                <div className="rounded-xl sm:rounded-2xl border border-white/8 bg-white/4 px-2.5 py-1.5 sm:px-3 sm:py-2">
-                  <span className="block text-[9px] sm:text-[10px] uppercase tracking-[0.18em] text-stone-500">
-                    Driver
-                  </span>
-                  <span className="mt-0.5 block font-semibold text-brand-100 text-xs sm:text-sm">
-                    {controller.behaviorLabel}
-                  </span>
-                </div>
-                <div className="rounded-xl sm:rounded-2xl border border-white/8 bg-white/4 px-2.5 py-1.5 sm:px-3 sm:py-2">
-                  <span className="block text-[9px] sm:text-[10px] uppercase tracking-[0.18em] text-stone-500">
-                    Side
-                  </span>
-                  <span className="mt-0.5 block font-semibold text-brand-100 text-xs sm:text-sm capitalize">
-                    {controller.orientation}
-                  </span>
-                </div>
+                <span>{controller.statusText}</span>
               </div>
             </div>
           </header>
@@ -926,20 +1024,6 @@ const App = () => {
             onSelectMove={handleSelectMove}
             selectedMoveIndex={selectedMoveIndex}
             playerColor={controller.playerColor}
-          />
-          <GameControls
-            difficulty={controller.difficulty}
-            playerColor={controller.playerColor}
-            onNewGame={controller.startNewGame}
-            onFlipBoard={controller.flipBoard}
-            onResign={controller.resignGame}
-            onUndo={controller.undoMove}
-            canUndo={controller.canUndo}
-            canFlipBoard={controller.canFlipBoard}
-            undoHint={controller.undoHint}
-            undoPulseVisible={controller.undoPulseVisible}
-            premoveStatusText={controller.premoveStatusText}
-            disabled={controller.isPending}
           />
         </aside>
       </motion.main>

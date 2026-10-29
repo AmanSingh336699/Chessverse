@@ -30,42 +30,60 @@ export const EffectsLayer = ({
   } | null>(null);
 
   useEffect(() => {
-    if (!lastMove || !boardWidth) return;
-
-    const isCheckmate = status === "checkmate";
-    
-    if (isCheckmate && lastMove.moveNotation.includes("#")) {
-      const targetSquare = lastMove.moveUci?.slice(2, 4);
-      if (!targetSquare || targetSquare.length < 2) return;
-
-      const fileLetter = targetSquare[0];
-      const rankDigit = targetSquare[1];
-      if (!fileLetter || !rankDigit) return;
-
-      const fileIndex = FILES.indexOf(fileLetter);
-      const rankIndex = parseInt(rankDigit) - 1;
-
-      let col = fileIndex;
-      let row = 7 - rankIndex;
-
-      if (orientation === "black") {
-        col = 7 - fileIndex;
-        row = rankIndex;
-      }
-
-      const x = col * squareSize;
-      const y = row * squareSize;
-
-      setActiveEffect({
-        id: `${lastMove.timestamp}-${targetSquare}-mate`,
-        type: "checkmate",
-        square: targetSquare,
-        x,
-        y,
-        size: squareSize,
-      });
+    if (
+      status !== "checkmate" ||
+      !lastMove ||
+      !lastMove.moveNotation.includes("#") ||
+      !boardWidth
+    ) {
+      setActiveEffect(null);
+      return;
     }
-  }, [lastMove, status, orientation, boardWidth, onShake]);
+
+    const targetSquare = lastMove.moveUci?.slice(2, 4);
+    if (!targetSquare || targetSquare.length < 2) {
+      setActiveEffect(null);
+      return;
+    }
+
+    const fileLetter = targetSquare[0];
+    const rankDigit = targetSquare[1];
+    if (!fileLetter || !rankDigit) {
+      setActiveEffect(null);
+      return;
+    }
+
+    const fileIndex = FILES.indexOf(fileLetter);
+    const rankIndex = parseInt(rankDigit, 10) - 1;
+    if (fileIndex < 0 || isNaN(rankIndex)) {
+      setActiveEffect(null);
+      return;
+    }
+
+    let col = fileIndex;
+    let row = 7 - rankIndex;
+
+    if (orientation === "black") {
+      col = 7 - fileIndex;
+      row = rankIndex;
+    }
+
+    const x = col * squareSize;
+    const y = row * squareSize;
+
+    setActiveEffect({
+      id: `${lastMove.timestamp}-${targetSquare}-mate`,
+      type: "checkmate",
+      square: targetSquare,
+      x,
+      y,
+      size: squareSize,
+    });
+
+    return () => {
+      setActiveEffect(null);
+    };
+  }, [lastMove, status, orientation, boardWidth, onShake, squareSize]);
 
   return (
     <div 

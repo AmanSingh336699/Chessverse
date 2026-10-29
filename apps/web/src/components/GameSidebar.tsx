@@ -187,7 +187,11 @@ const MoveCell = ({ entry, thinking, isLast, isSelected, onSelect, onExplain, mo
         </span>
       )}
       {summary && displayMode !== "none" && (
-        <span className="pointer-events-none absolute left-0 top-full z-20 mt-2 hidden w-64 rounded-2xl border border-white/10 bg-[#0d1726]/96 px-3 py-2 text-xs leading-5 text-stone-200 opacity-0 shadow-2xl backdrop-blur-xl transition-all duration-200 group-hover:opacity-100 group-focus-visible:opacity-100 md:block">
+        <span
+          className={`pointer-events-none absolute left-2 z-50 hidden max-w-[260px] rounded-xl border border-white/12 bg-[#08121f]/95 px-2.5 py-1.5 text-[11px] font-medium leading-snug text-stone-200 opacity-0 shadow-2xl backdrop-blur-md transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 md:block ${
+            moveIndex < 2 ? "top-full mt-1.5" : "bottom-full mb-1.5"
+          }`}
+        >
           {summary}
         </span>
       )}
@@ -299,48 +303,6 @@ const StatusBadge = ({ status, thinking }: { status: GameSnapshot["status"], thi
   );
 };
 
-const IntegratedEvalBar = ({ evaluation, mateIn }: { evaluation: number | null, mateIn?: number | null }) => {
-  const getPercent = () => {
-    if (typeof mateIn === "number") return mateIn > 0 ? 98 : 2;
-    if (evaluation === null) return 50;
-    const clamped = Math.max(-10, Math.min(10, evaluation));
-    const normalized = 50 + Math.tanh(clamped / 3) * 50;
-    return Math.max(2, Math.min(98, normalized));
-  };
-  
-  const widthPercent = getPercent();
-  const isWhiteAdvantage = (evaluation ?? 0) > 0 || (typeof mateIn === "number" && mateIn > 0);
-
-  return (
-      <div className="mt-5 mb-4 px-1">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs font-bold font-mono tracking-tight">
-              <span className="text-eval-white">
-                  {isWhiteAdvantage && typeof mateIn === "number"
-                      ? `M${mateIn}`
-                      : isWhiteAdvantage && evaluation !== null
-                        ? `+${evaluation.toFixed(1)}`
-                        : ""}
-              </span>
-              <span className="text-brand-300">Eval</span>
-              <span className="text-slate-400">
-                  {!isWhiteAdvantage && typeof mateIn === "number"
-                      ? `M${mateIn}`
-                      : !isWhiteAdvantage && evaluation !== null
-                        ? `${evaluation.toFixed(1)}`
-                        : ""}
-              </span>
-          </div>
-
-          <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-eval-black shadow-[inset_0_1px_3px_rgba(0,0,0,0.5)]">
-              <div
-                  className="absolute inset-y-0 left-0 bg-eval-white transition-all duration-600 ease-in-out"
-                  style={{ width: `${widthPercent}%` }}
-              />
-              <div className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-red-500/40 mix-blend-overlay" />
-          </div>
-      </div>
-  );
-};
 
 const extractCapturedArray = (fen: string, playerColor: "white" | "black") => {
   const pieces = fen.split(" ")[0] ?? "";
@@ -395,9 +357,11 @@ export const GameSidebar = ({
   const currentEngineMode = titleCase(game?.engineState.lastDominantMode ?? behaviorLabel);
   const activeBehaviorRoles = (game?.engineState.lastActiveBehaviors ?? []).filter((entry) => entry.score >= 0.05);
 
-  const movesEndRef = useRef<HTMLDivElement | null>(null);
+  const moveListContainerRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    movesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    if (moveListContainerRef.current) {
+      moveListContainerRef.current.scrollTop = moveListContainerRef.current.scrollHeight;
+    }
   }, [history.length]);
 
   const [explainIndex, setExplainIndex] = useState<number | null>(null);
@@ -445,8 +409,6 @@ export const GameSidebar = ({
                       />
                   </div>
 
-                  {/* Evaluation Integrated Component */}
-                  <IntegratedEvalBar evaluation={game?.evaluation ?? null} />
 
                   {/* Player Strip Section */}
                   <div className="flex flex-col gap-1 w-full bg-[#030912]/40 rounded-3xl p-2 border border-white/4">
@@ -672,7 +634,8 @@ export const GameSidebar = ({
                   </div>
 
                   <div
-                      className="h-80 min-h-48 relative rounded-xl ml-1 mr-1 border border-white/4 bg-[#0A111B] p-2 space-y-1.5 overflow-y-auto scroll-smooth pr-1 overflow-x-hidden [scrollbar-color:rgba(246,199,110,0.35)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-brand-200/35 [&::-webkit-scrollbar]:w-2"
+                      ref={moveListContainerRef}
+                      className="h-72 sm:h-80 md:h-[320px] max-h-[380px] relative rounded-xl ml-1 mr-1 border border-white/4 bg-[#0A111B] p-2 space-y-1.5 overflow-y-auto scroll-smooth pr-1 overflow-x-hidden [scrollbar-color:rgba(246,199,110,0.35)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-brand-200/35 [&::-webkit-scrollbar]:w-2"
                       role="list"
                       aria-label="Move history"
                   >
@@ -785,7 +748,6 @@ export const GameSidebar = ({
                               Awaiting First Move
                           </div>
                       )}
-                      <div ref={movesEndRef} />
                   </div>
               </section>
           )}

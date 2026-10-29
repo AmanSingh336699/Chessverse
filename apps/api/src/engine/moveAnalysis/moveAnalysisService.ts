@@ -245,13 +245,22 @@ export class MoveAnalysisService {
     };
     const explanations = generateExplanations(explainerCtx);
 
-    /* If no detector fired, provide a generic explanation */
+    /* If no detector fired, provide a concise explanation */
     if (explanations.length === 0) {
-      const generic = classification === "best" || classification === "excellent"
-        ? "You found one of the strongest moves in this position."
-        : classification === "good"
-          ? "A solid, reasonable move."
-          : `The engine preferred ${bestMoveNotation} in this position.`;
+      const generic =
+        classification === "best"
+          ? "Best engine move · Optimal"
+          : classification === "excellent"
+            ? "Excellent move · Retains advantage"
+            : classification === "good"
+              ? "Solid, natural move"
+              : classification === "inaccuracy"
+                ? `Inaccuracy (-${evalLoss.toFixed(1)}). Best was ${bestMoveNotation}`
+                : classification === "mistake"
+                  ? `Mistake (-${evalLoss.toFixed(1)}). Best was ${bestMoveNotation}`
+                  : classification === "blunder"
+                    ? `Blunder (-${evalLoss.toFixed(1)}). Best was ${bestMoveNotation}`
+                    : `Engine preferred ${bestMoveNotation}`;
       explanations.push({
         short: generic,
         detectorId: "generic",

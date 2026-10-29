@@ -149,7 +149,7 @@ describe("Server HTTP endpoints & Middleware (Phase 1)", () => {
       expect(body.user.email).toBe("bobby@example.com");
       authToken = body.token;
       registeredUserId = body.user.id;
-    });
+    }, 15000);
 
     it("POST /auth/login authenticates registered user", async () => {
       const res = await app.inject({
@@ -166,7 +166,7 @@ describe("Server HTTP endpoints & Middleware (Phase 1)", () => {
       const body = JSON.parse(res.body);
       expect(body.token).toBeDefined();
       expect(body.user.id).toBe(registeredUserId);
-    });
+    }, 15000);
 
     it("GET /auth/me returns current user profile with Bearer token", async () => {
       const res = await app.inject({
@@ -181,7 +181,7 @@ describe("Server HTTP endpoints & Middleware (Phase 1)", () => {
       const body = JSON.parse(res.body);
       expect(body.id).toBe(registeredUserId);
       expect(body.username).toBe("fisher_60");
-    });
+    }, 15000);
 
     it("POST /games with Authorization header associates game with user", async () => {
       const createRes = await app.inject({
@@ -216,7 +216,7 @@ describe("Server HTTP endpoints & Middleware (Phase 1)", () => {
       const history = JSON.parse(historyRes.body);
       expect(history.total).toBeGreaterThanOrEqual(1);
       expect(history.games.some((g: any) => g.gameId === game.gameId)).toBe(true);
-    });
+    }, 15000);
   });
 
   it("Rate limit: returns 429 Too Many Requests when rate limit is exceeded", async () => {

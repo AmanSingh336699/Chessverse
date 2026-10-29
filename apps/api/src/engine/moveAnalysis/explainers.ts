@@ -15,6 +15,15 @@ const PIECE_NAMES: Record<string, string> = {
   k: "king",
 };
 
+const PIECE_VALUES: Record<string, number> = {
+  p: 1,
+  n: 3,
+  b: 3,
+  r: 5,
+  q: 9,
+  k: 0,
+};
+
 const pieceName = (type: string): string => PIECE_NAMES[type.toLowerCase()] ?? type;
 
 const squareLabel = (sq: string): string => sq;
@@ -60,7 +69,7 @@ export interface ExplainerContext {
 }
 
 /* ═══════════════════════════════════════════════════════
-   Detector 1 — Hanging Piece
+   Detector 1 — Hanging Piece & Removed Guard
    ═══════════════════════════════════════════════════════ */
 
 export const detectHangingPiece = (ctx: ExplainerContext): ExplanationDetail | null => {
@@ -68,30 +77,72 @@ export const detectHangingPiece = (ctx: ExplainerContext): ExplanationDetail | n
     return null;
   }
 
+  const fromSquare = ctx.moveUci.slice(0, 2);
+  const toSquare = ctx.moveUci.slice(2, 4);
   const chessAfter = new Chess(ctx.fenAfter);
-
   const opponentMoves = chessAfter.moves({ verbose: true });
+  const friendlyColor = ctx.playerColor === "white" ? "w" : "b";
 
-  for (const move of opponentMoves) {
-    if (!move.captured) continue;
-
-    /* Check if captured piece belongs to the player */
-    const targetSquare = move.to;
-    /* Verify defender count */
-    const isDefended = opponentMoves.some(
-      (m) => m.from !== move.from && m.to === targetSquare && !m.captured,
+  /* Check 1: Did the moved piece blunder directly on toSquare? */
+  const capturesOnTarget = opponentMoves.filter((m) => m.to === toSquare);
+  if (capturesOnTarget.length > 0) {
+    capturesOnTarget.sort(
+      (a, b) => (PIECE_VALUES[a.piece] ?? 1) - (PIECE_VALUES[b.piece] ?? 1),
     );
+    const oppCap = capturesOnTarget[0]!;
 
-    if (!isDefended) {
-      const capturedPiece = pieceName(move.captured);
-      return {
-        short: `This move leaves your ${capturedPiece} undefended on ${squareLabel(targetSquare)}. Your opponent can simply capture it.`,
-        expanded: `After your move, the ${capturedPiece} on ${squareLabel(targetSquare)} has no defenders. Your opponent plays ${move.san} to win it for free. The engine recommended ${ctx.bestMoveNotation} instead.`,
-        detectorId: "hanging-piece",
-        evidence: [move.san, `Captures ${capturedPiece} on ${targetSquare}`],
-      };
-    }
+    const testGame = new Chess(ctx.fenAfter);
+    try {
+      testGame.move(oppCap);
+      const playerRecaptures = testGame.moves({ verbose: true }).filter((m) => m.to === toSquare);
+      const isDefended = playerRecaptures.length > 0;
+      const movedPiece = chessAfter.get(toSquare as any);
+      const movedType = movedPiece ? pieceName(movedPiece.type) : "piece";
+      const attackerType = pieceName(oppCap.piece);
+      const targetVal = PIECE_VALUES[movedPiece?.type ?? "p"] ?? 1;
+      const attackerVal = PIECE_VALUES[oppCap.piece] ?? 1;
+
+      if (!isDefended) {
+        return {
+          short: `Leaves ${movedType} undefended on ${toSquare}. Best: ${ctx.bestMoveNotation}`,
+          expanded: `Your ${movedType} on ${toSquare} has no defenders. Opponent can play ${oppCap.san} to capture for free. Best was ${ctx.bestMoveNotation}.`,
+          detectorId: "hanging-piece",
+          evidence: [oppCap.san, `Leaves ${movedType} hanging on ${toSquare}`],
+        };
+      } else if (targetVal > attackerVal && targetVal - attackerVal >= 2) {
+        return {
+          short: `Blunders ${movedType} on ${toSquare} to a ${attackerType}. Best: ${ctx.bestMoveNotation}`,
+          expanded: `Your ${movedType} on ${toSquare} can be traded unfavorably for a ${attackerType} (${oppCap.san}). Best was ${ctx.bestMoveNotation}.`,
+          detectorId: "hanging-piece",
+          evidence: [oppCap.san, `Loses ${movedType} for ${attackerType}`],
+        };
+      }
+    } catch {}
   }
+
+  /* Check 2: Did moving from fromSquare remove the defense of another friendly piece? */
+  for (const move of opponentMoves) {
+    if (!move.captured || move.to === toSquare) continue;
+    const targetSquare = move.to;
+    const victim = chessAfter.get(targetSquare as any);
+    if (!victim || victim.color !== friendlyColor) continue;
+
+    const testGame = new Chess(ctx.fenAfter);
+    try {
+      testGame.move(move);
+      const recaptures = testGame.moves({ verbose: true }).filter((m) => m.to === targetSquare);
+      if (recaptures.length === 0) {
+        const victimName = pieceName(victim.type);
+        return {
+          short: `Leaves ${victimName} on ${targetSquare} undefended. Best: ${ctx.bestMoveNotation}`,
+          expanded: `Moving from ${fromSquare} removed defense of your ${victimName} on ${targetSquare}, allowing ${move.san}. Best was ${ctx.bestMoveNotation}.`,
+          detectorId: "hanging-piece-removed-guard",
+          evidence: [move.san, `Leaves ${victimName} on ${targetSquare} undefended`],
+        };
+      }
+    } catch {}
+  }
+
   return null;
 };
 
@@ -100,19 +151,13 @@ export const detectHangingPiece = (ctx: ExplainerContext): ExplanationDetail | n
    ═══════════════════════════════════════════════════════ */
 
 export const detectForcedCheckmate = (ctx: ExplainerContext): ExplanationDetail | null => {
-  /* Triggers when eval after shows a mate score for the opponent */
   if (ctx.evalAfter > -99) {
     return null;
   }
 
-  const mateIn = Math.abs(ctx.evalAfter) >= 1000 ? 1 : undefined;
-  const pvLine = ctx.bestLinePV && ctx.bestLinePV.length > 0
-    ? ` starting with ${pvToSan(ctx.fenAfter, ctx.bestLinePV, 1)}`
-    : "";
-
   return {
-    short: `This move allows forced checkmate${mateIn ? ` in ${mateIn} move` : ""}${pvLine}.`,
-    expanded: `After your move, the engine finds a forced checkmate sequence for your opponent. ${ctx.bestMoveNotation} was the engine's recommended defense.`,
+    short: `Allows forced checkmate. Best: ${ctx.bestMoveNotation}`,
+    expanded: `After this move, opponent has a forced checkmate. Recommended defense was ${ctx.bestMoveNotation}.`,
     detectorId: "forced-checkmate-allowed",
     evidence: [`Eval after: ${ctx.evalAfter}`],
   };
@@ -137,15 +182,15 @@ export const detectTacticalPattern = (ctx: ExplainerContext): ExplanationDetail 
     const attacksFromSameSquare = opponentMoves.filter(
       (m) => m.from === fromSquare && m.captured,
     );
-    const uniqueTargets = new Set(attacksFromSameSquare.map((m) => m.to));
-    if (uniqueTargets.size >= 2) {
+    const uniqueTargets = [...new Set(attacksFromSameSquare.map((m) => m.to))];
+    if (uniqueTargets.length >= 2) {
       const piece = chessAfter.get(fromSquare);
       if (piece) {
         const attackerName = pieceName(piece.type);
-        const targets = [...uniqueTargets].map(squareLabel).join(" and ");
+        const targets = uniqueTargets.slice(0, 2).map(squareLabel).join(" & ");
         return {
-          short: `After this move, your opponent's ${attackerName} on ${squareLabel(fromSquare)} attacks both ${targets} simultaneously.`,
-          expanded: `This creates a fork — one piece attacking two or more of your pieces. You will lose material. The engine recommended ${ctx.bestMoveNotation}.`,
+          short: `Allows ${attackerName} fork on ${targets}. Best: ${ctx.bestMoveNotation}`,
+          expanded: `Opponent's ${attackerName} on ${fromSquare} forks ${targets}, winning material. Best was ${ctx.bestMoveNotation}.`,
           detectorId: "tactical-fork",
           evidence: [`Fork by ${attackerName} on ${fromSquare}`, `Targets: ${targets}`],
         };
@@ -161,8 +206,8 @@ export const detectTacticalPattern = (ctx: ExplainerContext): ExplanationDetail 
       const pieceMoves = chessAfter.moves({ square: piece.square, verbose: true });
       if (pieceMoves.length === 0 && opponentMoves.some((m) => m.to === piece.square)) {
         return {
-          short: `Your ${pieceName(piece.type)} on ${squareLabel(piece.square)} is pinned and cannot move.`,
-          expanded: `A pin locks your piece in place because moving it would expose a more valuable piece behind it. Consider ${ctx.bestMoveNotation} instead.`,
+          short: `Pins ${pieceName(piece.type)} on ${squareLabel(piece.square)}. Best: ${ctx.bestMoveNotation}`,
+          expanded: `Your ${pieceName(piece.type)} on ${squareLabel(piece.square)} is pinned and cannot move. Best was ${ctx.bestMoveNotation}.`,
           detectorId: "tactical-pin",
           evidence: [`Pinned ${pieceName(piece.type)} on ${piece.square}`],
         };
@@ -179,16 +224,12 @@ export const detectTacticalPattern = (ctx: ExplainerContext): ExplanationDetail 
 
 export const detectMaterialLossSequence = (ctx: ExplainerContext): ExplanationDetail | null => {
   if (ctx.evalLoss < 1.5) return null;
-  if (!ctx.bestLinePV || ctx.bestLinePV.length < 2) return null;
-
-  const pvNotation = pvToSan(ctx.fenAfter, ctx.bestLinePV, 4);
-  if (!pvNotation) return null;
 
   return {
-    short: `After this move, a forced exchange sequence loses material. Best continuation: ${pvNotation}.`,
-    expanded: `The engine found a line where your opponent wins material through a sequence of forced captures and recaptures. The evaluation drops by ${ctx.evalLoss.toFixed(1)} pawns. ${ctx.bestMoveNotation} avoided this.`,
+    short: `Loses material (-${ctx.evalLoss.toFixed(1)} pawns). Best: ${ctx.bestMoveNotation}`,
+    expanded: `A tactical exchange sequence loses material (-${ctx.evalLoss.toFixed(1)} pawns). Best was ${ctx.bestMoveNotation}.`,
     detectorId: "material-loss-sequence",
-    evidence: [pvNotation],
+    evidence: [`Eval loss: ${ctx.evalLoss}`],
   };
 };
 
@@ -199,32 +240,12 @@ export const detectMaterialLossSequence = (ctx: ExplainerContext): ExplanationDe
 export const detectSacrificeExplanation = (ctx: ExplainerContext): ExplanationDetail | null => {
   if (ctx.classification !== "brilliant") return null;
 
-  const chessBefore = new Chess(ctx.fenBefore);
-  const moveObj = (() => {
-    try {
-      const from = ctx.moveUci.slice(0, 2);
-      const to = ctx.moveUci.slice(2, 4);
-      const promotion = ctx.moveUci.length > 4 ? ctx.moveUci[4] : undefined;
-      if (!isSquare(from) || !isSquare(to)) return null;
-      return chessBefore.move(promotion ? { from, to, promotion } : { from, to });
-    } catch {
-      return null;
-    }
-  })();
-
-  if (!moveObj) return null;
-
-  const pieceSacrificed = pieceName(moveObj.piece);
-  const destination = squareLabel(moveObj.to);
-  const pvLine = ctx.bestLinePV
-    ? pvToSan(ctx.fenAfter, ctx.bestLinePV, 5)
-    : "";
-
+  const toSquare = ctx.moveUci.slice(2, 4);
   return {
-    short: `Brilliant! You sacrificed your ${pieceSacrificed} on ${destination} for a winning attack.`,
-    expanded: `You played a non-obvious ${pieceSacrificed} sacrifice that the engine confirms leads to a decisive advantage. ${pvLine ? `The continuation: ${pvLine}` : "The resulting position is winning."}`,
+    short: `Brilliant sacrifice on ${toSquare}! Winning attack.`,
+    expanded: `Decisive piece sacrifice on ${toSquare} unlocking a winning attack.`,
     detectorId: "sacrifice-explanation",
-    evidence: [`Sacrificed ${pieceSacrificed} on ${destination}`, pvLine],
+    evidence: [`Sacrifice on ${toSquare}`],
   };
 };
 
@@ -236,64 +257,30 @@ export const detectPositionalWeakening = (ctx: ExplainerContext): ExplanationDet
   if (ctx.classification === "best" || ctx.classification === "excellent" || ctx.classification === "brilliant") {
     return null;
   }
-  if (ctx.evalLoss < 0.5) return null;
+  if (ctx.evalLoss < 0.6) return null;
 
-  const chessBefore = new Chess(ctx.fenBefore);
-  const playerColorCode = ctx.playerColor === "white" ? "w" : "b";
-
-  /* ── Check pawn structure weakening ── */
   const moveFrom = ctx.moveUci.slice(0, 2);
-  const movedPiece = (() => {
-    try {
-      const chess = new Chess(ctx.fenBefore);
-      if (!isSquare(moveFrom)) return null;
-      return chess.get(moveFrom);
-    } catch {
-      return null;
-    }
-  })();
+  const chessBefore = new Chess(ctx.fenBefore);
+  let movedPiece;
+  try {
+    if (isSquare(moveFrom)) movedPiece = chessBefore.get(moveFrom);
+  } catch {}
 
   if (movedPiece?.type === "p") {
-    /* Pawn moved — check if it was shielding the king */
-    const kingSquare = (() => {
-      for (const row of chessBefore.board()) {
-        for (const p of row) {
-          if (p?.type === "k" && p.color === playerColorCode) return p.square;
-        }
-      }
-      return null;
-    })();
-
-    if (kingSquare) {
-      const kFile = kingSquare.charCodeAt(0);
-      const pFile = moveFrom.charCodeAt(0);
-      const fileDist = Math.abs(kFile - pFile);
-      if (fileDist <= 1) {
-        return {
-          short: `Moving this pawn weakens the shelter around your king.`,
-          expanded: `This pawn was part of your king's defensive structure. Advancing or removing it creates permanent weaknesses that your opponent can target. ${ctx.bestMoveNotation} maintained a safer structure.`,
-          detectorId: "positional-weakening",
-          evidence: [`Pawn moved from ${moveFrom} near king on ${kingSquare}`],
-        };
-      }
-    }
+    return {
+      short: `Weakens king shelter / pawn structure. Best: ${ctx.bestMoveNotation}`,
+      expanded: `Advancing this pawn weakens key defensive squares. Preferred was ${ctx.bestMoveNotation}.`,
+      detectorId: "positional-weakening",
+      evidence: [`Pawn move from ${moveFrom}`],
+    };
   }
 
-  /* ── Defender removal ── */
-  if (movedPiece && movedPiece.type !== "p" && movedPiece.type !== "k") {
-    const beforeDefenses = chessBefore.moves({ square: moveFrom as any, verbose: true })
-      .filter((m) => !m.captured).length;
-    if (beforeDefenses >= 2) {
-      return {
-        short: `Moving this ${pieceName(movedPiece.type)} removes an important defender from the position.`,
-        expanded: `Your ${pieceName(movedPiece.type)} was actively defending key squares. Relocating it leaves gaps in your position. The engine preferred ${ctx.bestMoveNotation}.`,
-        detectorId: "positional-weakening",
-        evidence: [`${pieceName(movedPiece.type)} defended ${beforeDefenses} squares from ${moveFrom}`],
-      };
-    }
-  }
-
-  return null;
+  return {
+    short: `Weakens piece coordination (-${ctx.evalLoss.toFixed(1)}). Best: ${ctx.bestMoveNotation}`,
+    expanded: `Reduces piece activity and coordination. Preferred was ${ctx.bestMoveNotation}.`,
+    detectorId: "positional-weakening",
+    evidence: [`Eval loss: ${ctx.evalLoss}`],
+  };
 };
 
 /* ═══════════════════════════════════════════════════════
@@ -304,8 +291,8 @@ export const detectOpeningBook = (ctx: ExplainerContext): ExplanationDetail | nu
   if (!ctx.openingBookName) return null;
 
   return {
-    short: `This is a standard move in the ${ctx.openingBookName}.`,
-    expanded: `You are following well-established opening theory. This move is part of the ${ctx.openingBookName} opening line.`,
+    short: `Book move · ${ctx.openingBookName}`,
+    expanded: `Standard opening move in the ${ctx.openingBookName}.`,
     detectorId: "opening-book",
     evidence: [ctx.openingBookName],
   };
