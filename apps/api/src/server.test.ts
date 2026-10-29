@@ -126,6 +126,99 @@ describe("Server HTTP endpoints & Middleware (Phase 1)", () => {
     expect(drawBody.game.status).toBe("draw");
   });
 
+  describe("Phase 3: Auth & Game History API", () => {
+    let authToken = "";
+    let registeredUserId = "";
+
+    it("POST /auth/register creates user account and returns token", async () => {
+      const res = await app.inject({
+        method: "POST",
+        url: "/auth/register",
+        headers: { "content-type": "application/json" },
+        payload: JSON.stringify({
+          username: "fisher_60",
+          email: "bobby@example.com",
+          password: "mySecretPassword123",
+        }),
+      });
+
+      expect(res.statusCode).toBe(201);
+      const body = JSON.parse(res.body);
+      expect(body.token).toBeDefined();
+      expect(body.user.username).toBe("fisher_60");
+      expect(body.user.email).toBe("bobby@example.com");
+      authToken = body.token;
+      registeredUserId = body.user.id;
+    });
+
+    it("POST /auth/login authenticates registered user", async () => {
+      const res = await app.inject({
+        method: "POST",
+        url: "/auth/login",
+        headers: { "content-type": "application/json" },
+        payload: JSON.stringify({
+          usernameOrEmail: "fisher_60",
+          password: "mySecretPassword123",
+        }),
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+      expect(body.token).toBeDefined();
+      expect(body.user.id).toBe(registeredUserId);
+    });
+
+    it("GET /auth/me returns current user profile with Bearer token", async () => {
+      const res = await app.inject({
+        method: "GET",
+        url: "/auth/me",
+        headers: {
+          authorization: `Bearer ${authToken}`,
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+      expect(body.id).toBe(registeredUserId);
+      expect(body.username).toBe("fisher_60");
+    });
+
+    it("POST /games with Authorization header associates game with user", async () => {
+      const createRes = await app.inject({
+        method: "POST",
+        url: "/games",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${authToken}`,
+        },
+        payload: JSON.stringify({
+          difficulty: "intermediate",
+          playerColor: "white",
+          style: "tricky",
+        }),
+      });
+
+      expect(createRes.statusCode).toBe(200);
+      const game = JSON.parse(createRes.body);
+      expect(game.userId).toBe(registeredUserId);
+      expect(game.style).toBe("tricky");
+
+      // Verify game appears in history
+      const historyRes = await app.inject({
+        method: "GET",
+        url: "/games/history",
+        headers: {
+          authorization: `Bearer ${authToken}`,
+        },
+      });
+
+      expect(historyRes.statusCode).toBe(200);
+      const history = JSON.parse(historyRes.body);
+      expect(history.total).toBeGreaterThanOrEqual(1);
+      expect(history.games.some((g: any) => g.gameId === game.gameId)).toBe(true);
+    });
+  });
+
   it("Rate limit: returns 429 Too Many Requests when rate limit is exceeded", async () => {
     let got429 = false;
     for (let i = 0; i < 150; i++) {

@@ -1,8 +1,13 @@
-import { eq, sql } from "drizzle-orm";
+import { eq, or, sql } from "drizzle-orm";
 import type { Pool } from "pg";
 import type { EngineState, MoveHistoryEntry } from "@chessverse/contracts";
-import { gamesTable, movesTable } from "../db/schema.js";
-import type { EngineStatDelta, PersistentGameRepository, StoredGame } from "../types.js";
+import { gamesTable, movesTable, usersTable } from "../db/schema.js";
+import type {
+  EngineStatDelta,
+  PersistentGameRepository,
+  StoredGame,
+  UserRecord,
+} from "../types.js";
 
 const encodeEvaluation = (value: number | null): number | null =>
   value === null ? null : Math.round(value * 100);
@@ -29,6 +34,7 @@ export class PostgresGameRepository implements PersistentGameRepository {
 
     return {
       gameId: game.gameId,
+      userId: game.userId ?? null,
       playerColor: game.playerColor as StoredGame["playerColor"],
       difficulty: game.difficulty as StoredGame["difficulty"],
       style: (game.style ?? "solid") as StoredGame["style"],
@@ -62,6 +68,7 @@ export class PostgresGameRepository implements PersistentGameRepository {
         .insert(gamesTable)
         .values({
           gameId: game.gameId,
+          userId: game.userId ?? null,
           playerColor: game.playerColor,
           difficulty: game.difficulty,
           style: game.style ?? "solid",
@@ -78,6 +85,7 @@ export class PostgresGameRepository implements PersistentGameRepository {
         .onConflictDoUpdate({
           target: gamesTable.gameId,
           set: {
+            userId: game.userId ?? null,
             playerColor: game.playerColor,
             difficulty: game.difficulty,
             style: game.style ?? "solid",
@@ -110,6 +118,88 @@ export class PostgresGameRepository implements PersistentGameRepository {
         );
       }
     });
+  }
+
+  async getUserGames(userId: string): Promise<StoredGame[]> {
+    const rows = await this.db
+      .select()
+      .from(gamesTable)
+      .where(eq(gamesTable.userId, userId))
+      .orderBy(sql`${gamesTable.createdAt} desc`);
+
+    return rows.map((game: typeof gamesTable.$inferSelect): StoredGame => ({
+      gameId: game.gameId,
+      userId: game.userId ?? null,
+      playerColor: game.playerColor as StoredGame["playerColor"],
+      difficulty: game.difficulty as StoredGame["difficulty"],
+      style: (game.style ?? "solid") as StoredGame["style"],
+      fen: game.currentFen,
+      status: game.status as StoredGame["status"],
+      evaluation: null,
+      moveHistory: [],
+      engineState: game.engineState as EngineState,
+      result: (game.result as StoredGame["result"]) ?? null,
+      totalMoves: game.totalMoves,
+      startTime: game.startTime.toISOString(),
+      endTime: game.endTime ? game.endTime.toISOString() : null,
+      createdAt: game.createdAt.toISOString(),
+      updatedAt: game.updatedAt.toISOString(),
+    }));
+  }
+
+  async getUserById(id: string): Promise<UserRecord | null> {
+    const [user] = await this.db.select().from(usersTable).where(eq(usersTable.id, id));
+    if (!user) {
+      return null;
+    }
+    return {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      passwordHash: user.passwordHash,
+      createdAt: user.createdAt.toISOString(),
+      updatedAt: user.updatedAt.toISOString(),
+    };
+  }
+
+  async getUserByUsernameOrEmail(identifier: string): Promise<UserRecord | null> {
+    const [user] = await this.db
+      .select()
+      .from(usersTable)
+      .where(or(eq(usersTable.username, identifier), eq(usersTable.email, identifier)));
+    if (!user) {
+      return null;
+    }
+    return {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      passwordHash: user.passwordHash,
+      createdAt: user.createdAt.toISOString(),
+      updatedAt: user.updatedAt.toISOString(),
+    };
+  }
+
+  async saveUser(user: UserRecord): Promise<void> {
+    await this.db
+      .insert(usersTable)
+      .values({
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        passwordHash: user.passwordHash,
+        createdAt: new Date(user.createdAt),
+        updatedAt: new Date(user.updatedAt),
+      })
+      .onConflictDoUpdate({
+        target: usersTable.id,
+        set: {
+          username: user.username,
+          email: user.email,
+          passwordHash: user.passwordHash,
+          updatedAt: new Date(user.updatedAt),
+        },
+      });
   }
 
   async incrementEngineStats(delta: EngineStatDelta): Promise<void> {

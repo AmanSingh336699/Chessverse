@@ -444,6 +444,23 @@ export const useGameController = () => {
       });
   }, []);
 
+  const loadGame = async (gameId: string) => {
+    setIsRestoringGame(true);
+    try {
+      const response = await api.getGame(gameId);
+      startTransition(() => {
+        syncGameSnapshot(response);
+      });
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(STORAGE_KEYS.gameId, gameId);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load game");
+    } finally {
+      setIsRestoringGame(false);
+    }
+  };
+
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -1119,6 +1136,8 @@ export const useGameController = () => {
     statusTone,
     analysisPendingKeys,
     sideSelectionOpen,
+    openSideSelection: () => setSideSelectionOpen(true),
     confirmNewGameOpen,
+    loadGame,
   };
 };

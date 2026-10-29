@@ -12,6 +12,12 @@ import { useGameController } from "./hooks/useGame";
 import { getMoveQualityVisual } from "./components/MoveQualitySymbol";
 import { EffectsLayer } from "./components/EffectsLayer";
 import { EvaluationBar } from "./components/EvaluationBar";
+import { Navbar } from "./components/Navbar";
+import { AuthModal } from "./components/AuthModal";
+import { GameHistoryModal } from "./components/GameHistoryModal";
+import { HomePage } from "./components/HomePage";
+import { useAuth } from "./hooks/useAuth";
+import type { StyleId } from "@chessverse/contracts";
 
 const tabs = [
   { id: "info", label: "Intelligence" },
@@ -134,6 +140,10 @@ const getCaptured = (
 
 const App = () => {
   const controller = useGameController();
+  const auth = useAuth();
+  const [currentView, setCurrentView] = useState<"home" | "arena">("home");
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [boardWidth, setBoardWidth] = useState<number>(getBoardWidth);
   const [selectedMoveIndex, setSelectedMoveIndex] = useState<number | null>(null);
   const [reviewMode, setReviewMode] = useState(false);
@@ -144,6 +154,27 @@ const App = () => {
     setShakeBoard(true);
     setTimeout(() => setShakeBoard(false), 200);
   };
+
+  const handleStartGameFromHome = (style?: StyleId) => {
+    if (style) {
+      controller.setStyle(style);
+    }
+    setCurrentView("arena");
+  };
+
+  const handleResumeGame = (gameId: string) => {
+    void controller.loadGame(gameId);
+    setCurrentView("arena");
+  };
+
+  useEffect(() => {
+    if (
+      controller.game?.status &&
+      ["checkmate", "stalemate", "draw", "resigned"].includes(controller.game.status)
+    ) {
+      void auth.refreshProfile();
+    }
+  }, [controller.game?.status, auth.refreshProfile]);
 
   useEffect(() => {
     const updateSize = () => {
@@ -371,18 +402,44 @@ const App = () => {
   const bottomColor = controller.orientation === "white" ? "white" : "black";
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-bg-base px-2.5 py-3 sm:px-5 sm:py-5 lg:px-8 lg:py-6 selection:bg-brand-200/30 selection:text-brand-100">
-      <div className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(circle_at_16%_18%,rgba(61,191,179,0.16),transparent_24%),radial-gradient(circle_at_86%_18%,rgba(88,215,229,0.12),transparent_18%),radial-gradient(circle_at_50%_110%,rgba(14,52,88,0.35),transparent_45%),linear-gradient(135deg,#020913_0%,#071320_48%,#081a2f_100%)]" />
-      <div className="pointer-events-none fixed inset-0 z-0 opacity-30 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-size-[52px_52px]" />
-      <div className="pointer-events-none fixed -top-[18%] -left-[8%] h-[70vh] w-[70vw] rounded-full bg-[radial-gradient(circle_at_center,rgba(124,231,214,0.16),transparent_58%)] blur-[110px] animate-pulse-slow" />
-      <div className="pointer-events-none fixed -bottom-[24%] right-[-12%] h-[82vh] w-[78vw] rounded-full bg-[radial-gradient(circle_at_center,rgba(58,165,198,0.14),transparent_56%)] blur-[130px] animate-float" />
+    <div className="relative min-h-screen overflow-x-hidden bg-bg-base text-brand-100 flex flex-col justify-between selection:bg-brand-200/30 selection:text-brand-100">
+      <Navbar
+        currentView={currentView}
+        onNavigate={setCurrentView}
+        user={auth.user}
+        onOpenAuth={() => setIsAuthOpen(true)}
+        onOpenHistory={() => setIsHistoryOpen(true)}
+        onLogout={auth.logout}
+        onNewGame={() => {
+          controller.openSideSelection();
+          setCurrentView("arena");
+        }}
+      />
 
-      <motion.main
-        className="relative z-10 mx-auto grid w-full max-w-[1820px] gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1.15fr)_420px] xl:grid-cols-[minmax(0,1.2fr)_minmax(480px,0.8fr)] 2xl:grid-cols-[minmax(0,1.25fr)_minmax(540px,0.75fr)] lg:items-start"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      >
+      {currentView === "home" ? (
+        <HomePage
+          onStartGame={handleStartGameFromHome}
+          onOpenSideDialog={() => {
+            controller.openSideSelection();
+            setCurrentView("arena");
+          }}
+          onOpenAuth={() => setIsAuthOpen(true)}
+          onOpenHistory={() => setIsHistoryOpen(true)}
+          user={auth.user}
+        />
+      ) : (
+        <div className="relative flex-1 px-2.5 py-3 sm:px-5 sm:py-5 lg:px-8 lg:py-6">
+          <div className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(circle_at_16%_18%,rgba(61,191,179,0.16),transparent_24%),radial-gradient(circle_at_86%_18%,rgba(88,215,229,0.12),transparent_18%),radial-gradient(circle_at_50%_110%,rgba(14,52,88,0.35),transparent_45%),linear-gradient(135deg,#020913_0%,#071320_48%,#081a2f_100%)]" />
+          <div className="pointer-events-none fixed inset-0 z-0 opacity-30 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-size-[52px_52px]" />
+          <div className="pointer-events-none fixed -top-[18%] -left-[8%] h-[70vh] w-[70vw] rounded-full bg-[radial-gradient(circle_at_center,rgba(124,231,214,0.16),transparent_58%)] blur-[110px] animate-pulse-slow" />
+          <div className="pointer-events-none fixed -bottom-[24%] right-[-12%] h-[82vh] w-[78vw] rounded-full bg-[radial-gradient(circle_at_center,rgba(58,165,198,0.14),transparent_56%)] blur-[130px] animate-float" />
+
+          <motion.main
+            className="relative z-10 mx-auto grid w-full max-w-[1820px] gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1.15fr)_420px] xl:grid-cols-[minmax(0,1.2fr)_minmax(480px,0.8fr)] 2xl:grid-cols-[minmax(0,1.25fr)_minmax(540px,0.75fr)] lg:items-start"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          >
         <section className="flex min-w-0 flex-col gap-3.5 sm:gap-5">
           {/* Responsive Header */}
           <header className="grid gap-3 sm:gap-4 rounded-2xl sm:rounded-[34px] border border-white/8 bg-[linear-gradient(180deg,rgba(12,22,36,0.68),rgba(8,16,28,0.34))] p-3.5 sm:px-6 sm:py-5 shadow-[0_24px_80px_rgba(2,8,20,0.24)] backdrop-blur-xl sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
@@ -840,6 +897,8 @@ const App = () => {
           />
         </aside>
       </motion.main>
+      </div>
+      )}
 
       <SideSelectionDialog
         open={controller.sideSelectionOpen}
@@ -858,6 +917,19 @@ const App = () => {
         cancelLabel="Keep Playing"
         onConfirm={controller.confirmNewGame}
         onCancel={controller.cancelNewGameConfirmation}
+      />
+
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        onLogin={auth.login}
+        onRegister={auth.register}
+      />
+
+      <GameHistoryModal
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        onResumeGame={handleResumeGame}
       />
     </div>
   );

@@ -4,9 +4,12 @@ import {
   defaultEngineState,
   difficultySchema,
   engineModeSchema,
+  gameHistoryResponseSchema,
   gameStatusSchema,
+  loginRequestSchema,
   moveRequestSchema,
   playerMoveRequestSchema,
+  registerRequestSchema,
   styleIdSchema,
   styleProfileSchema,
   STYLE_PROFILES,
@@ -159,6 +162,61 @@ describe("@chessverse/contracts", () => {
 
     it("rejects invalid style", () => {
       expect(() => styleIdSchema.parse("invalid-style")).toThrow();
+    });
+  });
+
+  describe("Phase 3: Auth & Game History Schemas", () => {
+    it("validates valid register request", () => {
+      const valid = {
+        username: "magnus_carlsen",
+        email: "magnus@example.com",
+        password: "secretPassword123",
+      };
+      expect(() => registerRequestSchema.parse(valid)).not.toThrow();
+    });
+
+    it("rejects invalid username with spaces or special characters", () => {
+      expect(() =>
+        registerRequestSchema.parse({
+          username: "magnus carlsen!",
+          email: "magnus@example.com",
+          password: "password123",
+        }),
+      ).toThrow();
+    });
+
+    it("validates login request with username or email", () => {
+      expect(
+        loginRequestSchema.parse({
+          usernameOrEmail: "magnus_carlsen",
+          password: "password123",
+        }),
+      ).toEqual({
+        usernameOrEmail: "magnus_carlsen",
+        password: "password123",
+      });
+    });
+
+    it("validates gameHistoryResponseSchema structure", () => {
+      const history = {
+        total: 1,
+        games: [
+          {
+            gameId: "123e4567-e89b-12d3-a456-426614174000",
+            userId: "123e4567-e89b-12d3-a456-426614174001",
+            playerColor: "white",
+            difficulty: "advanced",
+            style: "aggressive",
+            status: "checkmate",
+            result: "win",
+            totalMoves: 34,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            previewFen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+          },
+        ],
+      };
+      expect(() => gameHistoryResponseSchema.parse(history)).not.toThrow();
     });
   });
 });

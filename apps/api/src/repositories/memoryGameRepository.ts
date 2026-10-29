@@ -2,6 +2,7 @@ import type {
   EngineStatDelta,
   PersistentGameRepository,
   StoredGame,
+  UserRecord,
 } from "../types.js";
 import { env } from "../config/env.js";
 
@@ -31,6 +32,7 @@ export class InMemoryGameRepository implements PersistentGameRepository {
   private readonly games = new Map<string, StoredGame>();
   private readonly lastAccessed = new Map<string, number>();
   private readonly engineStats = new Map<string, EngineStatsSnapshot>();
+  private readonly users = new Map<string, UserRecord>();
 
   constructor(
     private readonly maxGames: number = env.MAX_CONCURRENT_GAMES,
@@ -54,6 +56,38 @@ export class InMemoryGameRepository implements PersistentGameRepository {
     }
     this.games.set(game.gameId, structuredClone(game));
     this.lastAccessed.set(game.gameId, Date.now());
+  }
+
+  async getUserGames(userId: string): Promise<StoredGame[]> {
+    this.evictExpired();
+    const userGames: StoredGame[] = [];
+    for (const game of this.games.values()) {
+      if (game.userId === userId) {
+        userGames.push(structuredClone(game));
+      }
+    }
+    return userGames.sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+  }
+
+  async getUserById(id: string): Promise<UserRecord | null> {
+    const user = this.users.get(id);
+    return user ? structuredClone(user) : null;
+  }
+
+  async getUserByUsernameOrEmail(identifier: string): Promise<UserRecord | null> {
+    const lower = identifier.toLowerCase();
+    for (const user of this.users.values()) {
+      if (user.username.toLowerCase() === lower || user.email.toLowerCase() === lower) {
+        return structuredClone(user);
+      }
+    }
+    return null;
+  }
+
+  async saveUser(user: UserRecord): Promise<void> {
+    this.users.set(user.id, structuredClone(user));
   }
 
   private evictExpired(): void {

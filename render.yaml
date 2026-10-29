@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: chessverse-api
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: npm install && npm run build --workspace=@chessverse/api
+    startCommand: npm run start --workspace=@chessverse/api
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: FRONTEND_ORIGIN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: AUTH_SECRET
+        generateValue: true

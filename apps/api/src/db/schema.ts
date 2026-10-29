@@ -10,8 +10,21 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
+export const usersTable = pgTable("users", {
+  id: uuid("id").primaryKey(),
+  username: varchar("username", { length: 64 }).notNull().unique(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+}, (table) => ({
+  usernameIdx: index("users_username_idx").on(table.username),
+  emailIdx: index("users_email_idx").on(table.email),
+}));
+
 export const gamesTable = pgTable("games", {
   gameId: uuid("game_id").primaryKey(),
+  userId: uuid("user_id").references(() => usersTable.id, { onDelete: "set null" }),
   playerColor: varchar("player_color", { length: 16 }).notNull(),
   difficulty: varchar("difficulty", { length: 16 }).notNull(),
   style: varchar("style", { length: 32 }).default("solid"),
@@ -26,6 +39,7 @@ export const gamesTable = pgTable("games", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
 }, (table) => ({
   statusIdx: index("games_status_idx").on(table.status),
+  userIdIdx: index("games_user_id_idx").on(table.userId),
   updatedAtIdx: index("games_updated_at_idx").on(table.updatedAt),
 }));
 

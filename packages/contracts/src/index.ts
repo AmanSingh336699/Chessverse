@@ -292,6 +292,7 @@ export const createGameRequestSchema = z.object({
   playerColor: playerColorSchema.default("white"),
   difficulty: difficultySchema.default("advanced"),
   style: styleIdSchema.default("solid"),
+  userId: z.string().uuid().optional(),
 });
 export type CreateGameRequest = z.input<typeof createGameRequestSchema>;
 
@@ -396,6 +397,7 @@ export type MoveHistoryEntry = z.infer<typeof moveHistoryEntrySchema>;
 
 export const gameSnapshotSchema = z.object({
   gameId: z.string().uuid(),
+  userId: z.string().uuid().nullable().optional(),
   playerColor: playerColorSchema,
   difficulty: difficultySchema,
   style: styleIdSchema,
@@ -506,3 +508,67 @@ export const defaultEngineState = (style: StyleId = "solid"): EngineState => ({
   },
   lastActiveBehaviors: [],
 });
+
+export const userStatsSchema = z.object({
+  gamesPlayed: z.number().int().nonnegative(),
+  wins: z.number().int().nonnegative(),
+  losses: z.number().int().nonnegative(),
+  draws: z.number().int().nonnegative(),
+  winRate: z.number().nonnegative(),
+  favoriteStyle: styleIdSchema.optional(),
+});
+export type UserStats = z.infer<typeof userStatsSchema>;
+
+export const userProfileSchema = z.object({
+  id: z.string().uuid(),
+  username: z.string().min(3).max(32),
+  email: z.string().email(),
+  createdAt: z.string(),
+  stats: userStatsSchema,
+});
+export type UserProfile = z.infer<typeof userProfileSchema>;
+
+export const registerRequestSchema = z.object({
+  username: z
+    .string()
+    .trim()
+    .min(3, "Username must be at least 3 characters")
+    .max(32, "Username cannot exceed 32 characters")
+    .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores"),
+  email: z.string().trim().email("Please provide a valid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
+export type RegisterRequest = z.infer<typeof registerRequestSchema>;
+
+export const loginRequestSchema = z.object({
+  usernameOrEmail: z.string().trim().min(3, "Username or email is required"),
+  password: z.string().min(1, "Password is required"),
+});
+export type LoginRequest = z.infer<typeof loginRequestSchema>;
+
+export const authResponseSchema = z.object({
+  token: z.string(),
+  user: userProfileSchema,
+});
+export type AuthResponse = z.infer<typeof authResponseSchema>;
+
+export const gameSummarySchema = z.object({
+  gameId: z.string().uuid(),
+  userId: z.string().uuid().nullable().optional(),
+  playerColor: playerColorSchema,
+  difficulty: difficultySchema,
+  style: styleIdSchema,
+  status: gameStatusSchema,
+  result: z.enum(["win", "loss", "draw"]).nullable(),
+  totalMoves: z.number().int().nonnegative(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  previewFen: z.string(),
+});
+export type GameSummary = z.infer<typeof gameSummarySchema>;
+
+export const gameHistoryResponseSchema = z.object({
+  games: z.array(gameSummarySchema),
+  total: z.number().int().nonnegative(),
+});
+export type GameHistoryResponse = z.infer<typeof gameHistoryResponseSchema>;

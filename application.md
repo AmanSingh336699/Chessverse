@@ -97,7 +97,7 @@ A monorepo structure containing:
 | **Style Profiles & Decision Pipeline** | Style Engine | `SideSelectionDialog.tsx`, `GameSidebar.tsx` | `engineService.ts`, `stylePipeline.ts`, `repertoire.ts` | 4 profiles (`aggressive`, `gambiteer`, `tricky`, `solid`), 8-stage pipeline, seeded softmax, 100-game self-play | **Verified (25 passing tests)** |
 | **Opening Book (Polyglot)** | Engine Intelligence | `GameSidebar.tsx` | `polyglotBook.ts`, `polyglotRandom.ts` | Binary `.bin` reader, castling vector decoding | **Verified (11 passing tests)** |
 | **Move Quality & Brilliant Detection** | Analysis & Coaching | `MoveQualitySymbol.tsx`, `MoveExplanationPanel.tsx` | `classifyMove.ts`, `brilliantDetector.ts`, `tacticalDetectors.ts` | Eval loss, condition 0 (+4.0 cap), sacrifice validation | **Verified (19 passing tests)** |
-| **User Authentication & History** | Auth & Storage | Planned | Planned | Phase 3 implementation | **Planned** |
+| **User Authentication & History** | Auth & Storage | `Navbar.tsx`, `AuthModal.tsx`, `GameHistoryModal.tsx`, `HomePage.tsx` | `authService.ts`, `server.ts`, `postgresGameRepository.ts` | `POST /auth/register`, `POST /auth/login`, `GET /auth/me`, `GET /games/history` | **Verified (8 passing tests)** |
 | **New Game Creation** | Game Lifecycle | `App.tsx`, `SideSelectionDialog.tsx`, `useGame.ts` | `server.ts`, `gameService.ts` | `POST /games` with style selection | **Verified (in server.test.ts)** |
 | **Speculative Pondering** | Performance & AI | N/A | `speculation.ts`, `analysisService.ts` | Background Speculation Jobs | **Implemented (untested)** |
 | **Undo Move System** | Game Controls | `GameControls.tsx`, `useGame.ts` | `server.ts`, `gameService.ts` | `POST /games/:id/undo` | **Implemented (untested)** |
@@ -663,16 +663,17 @@ npm run dev
 
 | Capability | Completion | Notes |
 | :--- | :---: | :--- |
-| Core Chess Gameplay & Contracts | **100%** | Moves, check, checkmate, stalemate, castling, contracts verified (13 tests) |
+| Core Chess Gameplay & Contracts | **100%** | Moves, check, checkmate, stalemate, castling, contracts verified (17 tests) |
 | Engine Reliability & Safety Chain | **100%** | Idempotency, 409 stale ply / mutex, legal fallback, 503 safe engine down verified (6 tests) |
 | Worker Pool & Concurrency | **100%** | Interactive preemption via stop, mid-search crash recovery, lock renewal (7 tests) |
 | Resilient Persistence & Shutdown | **100%** | Hybrid in-memory + write-behind queue, exponential backoff, flush() verified (3 tests) |
 | API Security & Rate Limiting | **100%** | Helmet, 1MB limit (413), rate limiting (429), /health & /ready verified (8 tests) |
 | AI Personality & Style Engine | **100%** | 4 profiles (`aggressive`, `gambiteer`, `tricky`, `solid`), 8-stage pipeline, seeded softmax, 0 illegal moves in 100-game self-play |
 | Move Classification & Coaching | **100%** | Brilliant through Blunder with tactical explanations & Condition 0 (+4.0 cap) verified (19 tests) |
-| Frontend UI, Board & Animations | **100%** | React 19, TailwindCSS 4, Framer Motion, Effects layer, style picker, telemetry badges (6 tests) |
+| User Authentication & Match History | **100%** | Scrypt hashing, timing-safe compare, HMAC-SHA256 tokens, per-user game history, guest fallback, dedicated homepage (8 tests) |
+| Frontend UI, Board & Animations | **100%** | React 19, TailwindCSS 4, Framer Motion, Effects layer, style picker, dedicated home page, auth & history modals (6 tests) |
 | WebSocket Synchronization | **35%** | Code drafted in `websocket.ts`, unmounted in `server.ts` |
-| Automated Test Coverage | **100%** | 96 unit and integration tests passing across all packages (13 contracts, 77 api, 6 web) |
+| Automated Test Coverage | **100%** | 108 unit and integration tests passing across all packages (17 contracts, 85 api, 6 web) |
 
 ---
 

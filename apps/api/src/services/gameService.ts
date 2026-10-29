@@ -3,6 +3,8 @@ import {
   STYLE_PROFILES,
   type CreateGameRequest,
   type Difficulty,
+  type GameHistoryResponse,
+  type GameSummary,
   type MoveHistoryEntry,
   type PlayerColor,
   type PlayerMoveRequest,
@@ -67,6 +69,7 @@ export class GameService {
     const style: StyleId = input.style ?? "solid";
     const baseGame: StoredGame = {
       gameId,
+      userId: input.userId ?? null,
       playerColor,
       difficulty,
       style,
@@ -873,6 +876,27 @@ export class GameService {
       type: "none",
       reason: "empty",
       message: "No moves to undo",
+    };
+  }
+
+  async getUserGameHistory(userId: string): Promise<GameHistoryResponse> {
+    const games = await this.repository.getUserGames(userId);
+    const summaries: GameSummary[] = games.map((game) => ({
+      gameId: game.gameId,
+      userId: game.userId ?? null,
+      playerColor: game.playerColor,
+      difficulty: game.difficulty,
+      style: game.style,
+      status: game.status,
+      result: game.result,
+      totalMoves: game.totalMoves,
+      createdAt: game.createdAt,
+      updatedAt: game.updatedAt,
+      previewFen: game.fen,
+    }));
+    return {
+      games: summaries,
+      total: summaries.length,
     };
   }
 }

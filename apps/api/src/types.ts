@@ -200,9 +200,22 @@ export class HttpError extends Error {
   }
 }
 
+export interface UserRecord {
+  id: string;
+  username: string;
+  email: string;
+  passwordHash: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface PersistentGameRepository {
   getGame(gameId: string): Promise<StoredGame | null>;
   saveGame(game: StoredGame): Promise<void>;
+  getUserGames(userId: string): Promise<StoredGame[]>;
+  getUserById(id: string): Promise<UserRecord | null>;
+  getUserByUsernameOrEmail(identifier: string): Promise<UserRecord | null>;
+  saveUser(user: UserRecord): Promise<void>;
   incrementEngineStats(delta: EngineStatDelta): Promise<void>;
   isHealthy(): Promise<boolean>;
 }
@@ -210,6 +223,10 @@ export interface PersistentGameRepository {
 export interface GameRepository {
   getGame(gameId: string): Promise<StoredGame | null>;
   saveGame(game: StoredGame): Promise<void>;
+  getUserGames(userId: string): Promise<StoredGame[]>;
+  getUserById(id: string): Promise<UserRecord | null>;
+  getUserByUsernameOrEmail(identifier: string): Promise<UserRecord | null>;
+  saveUser(user: UserRecord): Promise<void>;
   incrementEngineStats(delta: EngineStatDelta): Promise<void>;
 }
 

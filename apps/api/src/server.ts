@@ -6,8 +6,10 @@ import { randomUUID } from "node:crypto";
 import {
   createGameRequestSchema,
   defaultEngineState,
+  loginRequestSchema,
   moveRequestSchema,
   playerMoveRequestSchema,
+  registerRequestSchema,
   undoRequestSchema,
 } from "@chessverse/contracts";
 import { createDatabase } from "./db/client.js";
@@ -20,6 +22,7 @@ import { WorkerPool } from "./engine/workerPool.js";
 import { AnalysisService } from "./engine/analysisService.js";
 import { EngineService } from "./engine/engineService.js";
 import { GameService, ValidationService } from "./services/gameService.js";
+import { AuthService } from "./services/authService.js";
 import { HttpError } from "./types.js";
 import { BehaviorEngine } from "./engine/behaviorEngine.js";
 import { loadPolyglotOpeningBook } from "./openingBook/polyglotBook.js";
@@ -91,6 +94,7 @@ export const buildServer = async () => {
   await contextStore.connect(env.REDIS_URL);
   const speculationEngine = new SpeculationEngine(workerPool, analysisService, app.log);
   const metricsCollector = new MetricsCollector(app.log);
+  const authService = new AuthService(repository);
   const gameService = new GameService(
     repository,
     validationService,
@@ -208,8 +212,43 @@ export const buildServer = async () => {
     }
   });
 
+  app.post("/auth/register", async (request, reply) => {
+    const payload = registerRequestSchema.parse(request.body);
+    const result = await authService.register(payload);
+    reply.code(201);
+    return result;
+  });
+
+  app.post("/auth/login", async (request) => {
+    const payload = loginRequestSchema.parse(request.body);
+    return authService.login(payload);
+  });
+
+  app.get("/auth/me", async (request) => {
+    const authUser = authService.extractUserFromAuthHeader(request.headers.authorization);
+    if (!authUser) {
+      throw new HttpError(401, "Unauthorized");
+    }
+    return authService.getProfile(authUser.userId);
+  });
+
+  app.get("/games/history", async (request) => {
+    const authUser = authService.extractUserFromAuthHeader(request.headers.authorization);
+    const queryUserId = (request.query as { userId?: string })?.userId;
+    const targetUserId = authUser?.userId ?? queryUserId;
+    if (!targetUserId) {
+      throw new HttpError(401, "Authentication required to view game history");
+    }
+    return gameService.getUserGameHistory(targetUserId);
+  });
+
   app.post("/games", async (request) => {
-    const payload = createGameRequestSchema.parse(request.body ?? {});
+    const authUser = authService.extractUserFromAuthHeader(request.headers.authorization);
+    const body = (request.body as Record<string, unknown>) ?? {};
+    const payload = createGameRequestSchema.parse({
+      ...body,
+      ...(authUser && !body.userId ? { userId: authUser.userId } : {}),
+    });
     return gameService.createGame(payload);
   });
 

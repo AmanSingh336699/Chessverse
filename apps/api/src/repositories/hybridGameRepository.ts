@@ -4,6 +4,7 @@ import type {
   GameRepository,
   PersistentGameRepository,
   StoredGame,
+  UserRecord,
 } from "../types.js";
 import { InMemoryGameRepository } from "./memoryGameRepository.js";
 
@@ -92,6 +93,70 @@ export class HybridGameRepository implements GameRepository {
       await this.persistent.incrementEngineStats(delta);
     } catch (error) {
       this.logger.warn({ error, delta }, "Failed to persist engine stats — retaining in memory");
+    }
+  }
+
+  async getUserGames(userId: string): Promise<StoredGame[]> {
+    if (this.persistent) {
+      try {
+        return await this.persistent.getUserGames(userId);
+      } catch (error) {
+        this.logger.warn(
+          { error, userId },
+          "Failed to fetch user games from persistent storage — falling back to memory",
+        );
+      }
+    }
+    return this.memory.getUserGames(userId);
+  }
+
+  async getUserById(id: string): Promise<UserRecord | null> {
+    const memoryUser = await this.memory.getUserById(id);
+    if (memoryUser) return memoryUser;
+
+    if (this.persistent) {
+      try {
+        const user = await this.persistent.getUserById(id);
+        if (user) {
+          await this.memory.saveUser(user);
+        }
+        return user;
+      } catch (error) {
+        this.logger.warn({ error, id }, "Failed to load user by ID from persistent storage");
+      }
+    }
+    return null;
+  }
+
+  async getUserByUsernameOrEmail(identifier: string): Promise<UserRecord | null> {
+    const memoryUser = await this.memory.getUserByUsernameOrEmail(identifier);
+    if (memoryUser) return memoryUser;
+
+    if (this.persistent) {
+      try {
+        const user = await this.persistent.getUserByUsernameOrEmail(identifier);
+        if (user) {
+          await this.memory.saveUser(user);
+        }
+        return user;
+      } catch (error) {
+        this.logger.warn({ error, identifier }, "Failed to load user from persistent storage");
+      }
+    }
+    return null;
+  }
+
+  async saveUser(user: UserRecord): Promise<void> {
+    await this.memory.saveUser(user);
+    if (this.persistent) {
+      try {
+        await this.persistent.saveUser(user);
+      } catch (error) {
+        this.logger.warn(
+          { error, userId: user.id },
+          "Failed to persist user to persistent storage — retaining in memory",
+        );
+      }
     }
   }
 

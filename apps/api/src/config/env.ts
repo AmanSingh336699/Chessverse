@@ -113,6 +113,7 @@ const envSchema = z.object({
   CLASSIFICATION_INACCURACY_MAX: z.coerce.number().positive().default(2.0),
   CLASSIFICATION_MISTAKE_MAX: z.coerce.number().positive().default(4.0),
   ANALYSIS_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(86400),
+  AUTH_SECRET: z.string().min(16).default("chessverse-super-secret-auth-key-32-chars-long"),
 });
 
 export const env = envSchema.parse(process.env);

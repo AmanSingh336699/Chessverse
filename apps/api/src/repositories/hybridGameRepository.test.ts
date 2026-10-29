@@ -33,6 +33,10 @@ describe("HybridGameRepository - Write-Behind & Persistence Resilience (Phase 1)
       isHealthy: vi.fn().mockResolvedValue(false),
       getGame: vi.fn().mockRejectedValue(new Error("Database connection refused")),
       saveGame: vi.fn().mockRejectedValue(new Error("Database connection refused")),
+      getUserGames: vi.fn().mockResolvedValue([]),
+      getUserById: vi.fn().mockResolvedValue(null),
+      getUserByUsernameOrEmail: vi.fn().mockResolvedValue(null),
+      saveUser: vi.fn().mockResolvedValue(undefined),
       incrementEngineStats: vi.fn().mockRejectedValue(new Error("Database connection refused")),
     };
 
@@ -63,6 +67,10 @@ describe("HybridGameRepository - Write-Behind & Persistence Resilience (Phase 1)
         if (!dbOnline) throw new Error("DB offline");
         persistentStore.set(game.gameId, game);
       }),
+      getUserGames: vi.fn().mockResolvedValue([]),
+      getUserById: vi.fn().mockResolvedValue(null),
+      getUserByUsernameOrEmail: vi.fn().mockResolvedValue(null),
+      saveUser: vi.fn().mockResolvedValue(undefined),
       incrementEngineStats: vi.fn().mockResolvedValue(undefined),
     };
 
@@ -91,6 +99,10 @@ describe("HybridGameRepository - Write-Behind & Persistence Resilience (Phase 1)
       isHealthy: vi.fn().mockResolvedValue(true),
       getGame: vi.fn().mockResolvedValue(existingGame),
       saveGame: vi.fn().mockResolvedValue(undefined),
+      getUserGames: vi.fn().mockResolvedValue([]),
+      getUserById: vi.fn().mockResolvedValue(null),
+      getUserByUsernameOrEmail: vi.fn().mockResolvedValue(null),
+      saveUser: vi.fn().mockResolvedValue(undefined),
       incrementEngineStats: vi.fn().mockResolvedValue(undefined),
     };
 
