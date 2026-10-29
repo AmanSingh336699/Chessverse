@@ -52,11 +52,15 @@ describe("@chessverse/contracts", () => {
   });
 
   describe("playerMoveRequestSchema", () => {
-    it("validates UCI square coordinate moves", () => {
+    it("validates UCI square coordinate moves with clientMoveId and expectedPly", () => {
       const move = playerMoveRequestSchema.parse({
+        clientMoveId: "move-1",
+        expectedPly: 0,
         from: "e2",
         to: "e4",
       });
+      expect(move.clientMoveId).toBe("move-1");
+      expect(move.expectedPly).toBe(0);
       expect(move.from).toBe("e2");
       expect(move.to).toBe("e4");
       expect(move.promotion).toBeUndefined();
@@ -64,6 +68,8 @@ describe("@chessverse/contracts", () => {
 
     it("supports pawn promotion pieces", () => {
       const move = playerMoveRequestSchema.parse({
+        clientMoveId: "move-2",
+        expectedPly: 20,
         from: "e7",
         to: "e8",
         promotion: "q",
@@ -71,9 +77,42 @@ describe("@chessverse/contracts", () => {
       expect(move.promotion).toBe("q");
     });
 
+    it("rejects missing clientMoveId or negative expectedPly", () => {
+      expect(() =>
+        playerMoveRequestSchema.parse({
+          expectedPly: 0,
+          from: "e2",
+          to: "e4",
+        }),
+      ).toThrow();
+
+      expect(() =>
+        playerMoveRequestSchema.parse({
+          clientMoveId: "move-3",
+          expectedPly: -1,
+          from: "e2",
+          to: "e4",
+        }),
+      ).toThrow();
+    });
+
     it("rejects invalid square lengths", () => {
-      expect(() => playerMoveRequestSchema.parse({ from: "e22", to: "e4" })).toThrow();
-      expect(() => playerMoveRequestSchema.parse({ from: "e2", to: "" })).toThrow();
+      expect(() =>
+        playerMoveRequestSchema.parse({
+          clientMoveId: "move-4",
+          expectedPly: 0,
+          from: "e22",
+          to: "e4",
+        }),
+      ).toThrow();
+      expect(() =>
+        playerMoveRequestSchema.parse({
+          clientMoveId: "move-5",
+          expectedPly: 0,
+          from: "e2",
+          to: "",
+        }),
+      ).toThrow();
     });
   });
 

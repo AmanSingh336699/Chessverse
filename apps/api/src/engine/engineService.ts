@@ -89,6 +89,28 @@ export class EngineService {
         this.openingBook = openingBook ?? null;
     }
 
+    getUnavailableReason(): string | null {
+        return this.pool.getUnavailableReason();
+    }
+
+    async getTopStockfishMove(
+        fen: string,
+        depth = 10,
+    ): Promise<{ move: string; evaluation: number } | null> {
+        try {
+            return await this.pool.withWorker("fallback-stockfish", async (worker) => {
+                const result = await this.analysisService.getCandidates(worker, fen, depth);
+                const top = result.candidates[0];
+                if (!top) return null;
+                return {
+                    move: top.move,
+                    evaluation: top.eval,
+                };
+            }, 1);
+        } catch {
+            return null;
+        }
+    }
 
     async chooseMove(params: {
         gameId: string;

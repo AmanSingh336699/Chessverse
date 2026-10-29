@@ -271,6 +271,14 @@ export class StockfishWorker {
         return this.tablebasesLoaded;
     }
 
+    stopSearch(): void {
+        try {
+            this.sendCommand("stop");
+        } catch {
+            /* ignore if process closed */
+        }
+    }
+
     setState(next: WorkerState): void {
         const prev = this.state;
         this.state = next;

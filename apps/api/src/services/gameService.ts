@@ -36,6 +36,9 @@ export class ValidationService {
 }
 
 export class GameService {
+  private readonly inFlightMoves = new Set<string>();
+  private readonly idempotencyCache = new Map<string, Map<string, import("@chessverse/contracts").PlayerMoveResponse>>();
+
   constructor(
     private readonly repository: GameRepository,
     private readonly validation: ValidationService,
@@ -94,19 +97,87 @@ export class GameService {
   }
 
   async applyPlayerMove(gameId: string, move: PlayerMoveRequest) {
-    const releaseLock = this.contextStore
-      ? await this.contextStore.acquireLock(gameId)
-      : null;
+    // 1. Idempotency check: duplicate clientMoveId returns identical response
+    const cachedResponse = this.idempotencyCache.get(gameId)?.get(move.clientMoveId);
+    if (cachedResponse) {
+      this.logger.info(
+        { gameId, clientMoveId: move.clientMoveId },
+        "Idempotent move replay detected — returning existing response",
+      );
+      return cachedResponse;
+    }
 
-    if (this.contextStore && releaseLock === null) {
-      throw new HttpError(429, "Another request is processing this game", {
-        error: "Another request is processing this game",
+    // 2. In-flight move conflict check (per-game mutex)
+    if (this.inFlightMoves.has(gameId)) {
+      throw new HttpError(409, "Move already in flight for this game", {
+        error: "Move already in flight for this game",
       });
     }
 
+    this.inFlightMoves.add(gameId);
+
+    let releaseLock: (() => Promise<void>) | null = null;
     try {
-      return await this.applyPlayerMoveInner(gameId, move);
+      // 3. Stale expectedPly check
+      const currentGame = await this.getGame(gameId);
+      if (move.expectedPly !== currentGame.moveHistory.length) {
+        throw new HttpError(
+          409,
+          `Stale ply: expected ${currentGame.moveHistory.length}, got ${move.expectedPly}`,
+          {
+            error: "Stale ply",
+            expectedPly: currentGame.moveHistory.length,
+            receivedPly: move.expectedPly,
+          },
+        );
+      }
+
+      // 4. Acquire distributed/context lock if Redis is configured
+      if (this.contextStore) {
+        releaseLock = await this.contextStore.acquireLock(gameId);
+        if (releaseLock === null) {
+          throw new HttpError(409, "Move already in flight for this game", {
+            error: "Move already in flight for this game",
+          });
+        }
+      }
+      // Check if engine is available before modifying game state
+      const unavailableReason = this.engineService.getUnavailableReason();
+      if (unavailableReason) {
+        throw new HttpError(503, "Engine unavailable", { error: "Engine unavailable" });
+      }
+
+      // Re-verify expectedPly against latest repository state
+      const latestGame = await this.getGame(gameId);
+      if (move.expectedPly !== latestGame.moveHistory.length) {
+        throw new HttpError(
+          409,
+          `Stale ply: expected ${latestGame.moveHistory.length}, got ${move.expectedPly}`,
+          {
+            error: "Stale ply",
+            expectedPly: latestGame.moveHistory.length,
+            receivedPly: move.expectedPly,
+          },
+        );
+      }
+
+      const response = await this.applyPlayerMoveInner(gameId, move);
+
+      // Cache response for clientMoveId idempotency
+      let gameCache = this.idempotencyCache.get(gameId);
+      if (!gameCache) {
+        gameCache = new Map();
+        this.idempotencyCache.set(gameId, gameCache);
+      }
+      gameCache.set(move.clientMoveId, response);
+      if (gameCache.size > 50) {
+        const oldest = gameCache.keys().next().value;
+        if (oldest) gameCache.delete(oldest);
+      }
+
+      return response;
     } finally {
+      this.inFlightMoves.delete(gameId);
       if (releaseLock) {
         await releaseLock();
       }
@@ -347,36 +418,109 @@ export class GameService {
       };
     }
 
-    const aiDecision = await this.engineService.chooseMove({
-      gameId: game.gameId,
-      fen: game.fen,
-      difficulty: game.difficulty,
-      moveNumber: getFullmoveNumberFromFen(game.fen),
-      aiColor: oppositeColor(game.playerColor),
-      engineState: game.engineState,
-      moveHistory: game.moveHistory,
-    });
-
+    // Safety Chain: style choice -> validate legality with chess.js -> pure Stockfish top move -> any legal move
     const aiChess = new Chess(game.fen);
-    const aiMovePayload = uciToMoveShape(aiDecision.move);
-    if (!aiMovePayload) {
-      throw new HttpError(500, "Engine produced an invalid move", { error: "Engine produced an invalid move" });
+    let chosenUci: string | null = null;
+    let chosenSan: string | null = null;
+    let chosenEval = 0;
+    let chosenEngineMode: import("@chessverse/contracts").EngineMode = "stockfish";
+    let chosenStrategy = "safety-chain";
+    let nextEngineState = game.engineState;
+    let thinkingTime = 0;
+
+    // Step 1: Style choice
+    try {
+      const aiDecision = await this.engineService.chooseMove({
+        gameId: game.gameId,
+        fen: game.fen,
+        difficulty: game.difficulty,
+        moveNumber: getFullmoveNumberFromFen(game.fen),
+        aiColor: oppositeColor(game.playerColor),
+        engineState: game.engineState,
+        moveHistory: game.moveHistory,
+      });
+
+      const payload = uciToMoveShape(aiDecision.move);
+      if (payload) {
+        const testMove = new Chess(game.fen).move(payload);
+        if (testMove) {
+          chosenUci = aiDecision.move;
+          chosenSan = aiDecision.moveNotation;
+          chosenEval = aiDecision.evaluation;
+          chosenEngineMode = aiDecision.engineMode;
+          chosenStrategy = aiDecision.engineState.lastDecision.strategy ?? "style-engine";
+          nextEngineState = aiDecision.engineState;
+          thinkingTime = aiDecision.thinkingTime;
+        }
+      }
+
+      if (!chosenUci) {
+        this.logger.warn(
+          { gameId: game.gameId, move: aiDecision.move },
+          "Style move was illegal according to chess.js — falling back to pure Stockfish",
+        );
+      }
+    } catch (err) {
+      if (err instanceof HttpError && err.statusCode === 503) {
+        throw err;
+      }
+      this.logger.warn({ gameId: game.gameId, err }, "Style engine failed — falling back to pure Stockfish");
     }
-    const aiMoveResult = aiChess.move(aiMovePayload);
-    if (!aiMoveResult) {
-      throw new HttpError(500, "Engine produced an illegal move", { error: "Engine produced an illegal move" });
+
+    // Step 2: Pure Stockfish top move fallback
+    if (!chosenUci) {
+      try {
+        const sfTop = await this.engineService.getTopStockfishMove(game.fen);
+        if (sfTop) {
+          const payload = uciToMoveShape(sfTop.move);
+          if (payload) {
+            const testMove = new Chess(game.fen).move(payload);
+            if (testMove) {
+              chosenUci = sfTop.move;
+              chosenSan = testMove.san;
+              chosenEval = sfTop.evaluation;
+              chosenEngineMode = "stockfish";
+              chosenStrategy = "pure-stockfish-fallback";
+              this.logger.info({ gameId: game.gameId, chosenUci }, "Used pure Stockfish top move fallback");
+            }
+          }
+        }
+      } catch (err) {
+        this.logger.warn({ gameId: game.gameId, err }, "Pure Stockfish fallback failed — falling back to legal move");
+      }
     }
+
+    // Step 3: Any legal move fallback
+    if (!chosenUci) {
+      const legalMoves = aiChess.moves({ verbose: true });
+      if (legalMoves.length > 0) {
+        const fallback = legalMoves[0]!;
+        chosenUci = `${fallback.from}${fallback.to}${fallback.promotion ?? ""}`;
+        chosenSan = fallback.san;
+        chosenEval = 0;
+        chosenEngineMode = "stockfish";
+        chosenStrategy = "arbitrary-legal-fallback";
+        this.logger.warn({ gameId: game.gameId, chosenUci }, "Used arbitrary legal move fallback");
+      }
+    }
+
+    if (!chosenUci) {
+      throw new HttpError(503, "Engine unavailable", { error: "Engine unavailable" });
+    }
+
+    const aiMovePayload = uciToMoveShape(chosenUci)!;
+    aiChess.move(aiMovePayload);
 
     const aiEntry: MoveHistoryEntry = {
       moveNumber: game.moveHistory.length + 1,
       player: "ai",
       fenBefore: game.fen,
       fenAfter: aiChess.fen(),
-      moveUci: aiDecision.move,
-      moveNotation: aiDecision.moveNotation,
-      evaluation: aiDecision.evaluation,
-      engineMode: aiDecision.engineMode,
-      strategy: aiDecision.engineState.lastDecision.strategy,
+      moveUci: chosenUci,
+      moveNotation: chosenSan ?? chosenUci,
+      evaluation: chosenEval,
+      engineMode: chosenEngineMode,
+      strategy: chosenStrategy,
       timestamp: new Date().toISOString(),
     };
 
@@ -384,8 +528,8 @@ export class GameService {
     game.fen = aiChess.fen();
     game.totalMoves = game.moveHistory.length;
     const aiColor = oppositeColor(game.playerColor);
-    game.evaluation = aiColor === "black" ? -aiDecision.evaluation : aiDecision.evaluation;
-    game.engineState = aiDecision.engineState;
+    game.evaluation = aiColor === "black" ? -chosenEval : chosenEval;
+    game.engineState = nextEngineState;
     game.engineState.gambit = normalizeGambitState(game.engineState.gambit);
     game.updatedAt = new Date().toISOString();
 
@@ -408,7 +552,7 @@ export class GameService {
         aiMove: null,
         evaluation: null,
         engineMode: null,
-        thinkingTime: aiDecision.thinkingTime,
+        thinkingTime,
         moveAnalysis: null,
       };
     }
@@ -434,12 +578,12 @@ export class GameService {
     }
 
     await this.repository.incrementEngineStats({
-      gambitsAttempted: aiDecision.engineMode === "gambit" ? 1 : 0,
+      gambitsAttempted: chosenEngineMode === "gambit" ? 1 : 0,
       gambitsAccepted: game.engineState.gambit.status === "accepted" ? 1 : 0,
-      sacrificesPlayed: aiDecision.engineMode === "sacrifice" ? 1 : 0,
-      trapsSet: aiDecision.engineMode === "trap" ? 1 : 0,
-      trapsTriggered: aiDecision.engineMode === "trap" ? 1 : 0,
-      thinkingTimeMs: aiDecision.thinkingTime,
+      sacrificesPlayed: chosenEngineMode === "sacrifice" ? 1 : 0,
+      trapsSet: chosenEngineMode === "trap" ? 1 : 0,
+      trapsTriggered: chosenEngineMode === "trap" ? 1 : 0,
+      thinkingTimeMs: thinkingTime,
     });
 
     this.logger.info(
@@ -447,8 +591,8 @@ export class GameService {
         gameId,
         playerMove: playerEntry.moveUci,
         aiMove: aiEntry.moveUci,
-        evaluation: aiDecision.evaluation,
-        engineMode: aiDecision.engineMode,
+        evaluation: chosenEval,
+        engineMode: chosenEngineMode,
       },
       "Processed player move and AI response",
     );
@@ -481,9 +625,9 @@ export class GameService {
       game,
       playerMove: playerEntry,
       aiMove: aiEntry,
-      evaluation: aiDecision.evaluation,
-      engineMode: aiDecision.engineMode,
-      thinkingTime: aiDecision.thinkingTime,
+      evaluation: chosenEval,
+      engineMode: chosenEngineMode,
+      thinkingTime,
       moveAnalysis: null,
     };
   }

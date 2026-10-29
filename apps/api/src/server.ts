@@ -1,5 +1,8 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import helmet from "@fastify/helmet";
+import rateLimit from "@fastify/rate-limit";
+import { randomUUID } from "node:crypto";
 import {
   createGameRequestSchema,
   defaultEngineState,
@@ -31,10 +34,26 @@ const oppositeColor = (color: "white" | "black") =>
 export const buildServer = async () => {
   const app = Fastify({
     loggerInstance: logger,
+    bodyLimit: 1048576, // 1MB limit
+    genReqId: () => randomUUID(),
+  });
+
+  await app.register(helmet, {
+    contentSecurityPolicy: false,
   });
 
   await app.register(cors, {
     origin: env.FRONTEND_ORIGIN,
+  });
+
+  await app.register(rateLimit, {
+    max: env.RATE_LIMIT_MAX,
+    timeWindow: env.RATE_LIMIT_WINDOW,
+    errorResponseBuilder: (_req: unknown, context: { after: string }) => ({
+      statusCode: 429,
+      error: "Too Many Requests",
+      message: `Rate limit exceeded, retry in ${context.after}`,
+    }),
   });
 
   const database = createDatabase();
@@ -42,6 +61,8 @@ export const buildServer = async () => {
     ? new PostgresGameRepository(database.db, database.pool)
     : null;
   const repository = new HybridGameRepository(app.log, persistentRepository);
+  await repository.reconcileStartup();
+
   const validationService = new ValidationService();
   const cache = await createEvalCache<number>(env.REDIS_URL, app.log);
   const candidateCache = await createEvalCache<import("@chessverse/contracts").CandidateMove[]>(env.REDIS_URL, app.log);
@@ -83,6 +104,7 @@ export const buildServer = async () => {
   app.addHook("onRequest", async (request) => {
     request.log.info(
       {
+        requestId: request.id,
         method: request.method,
         url: request.url,
         body: request.body,
@@ -110,12 +132,25 @@ export const buildServer = async () => {
 
   app.get("/ready", async (_request, reply) => {
     const engineError = workerPool.getUnavailableReason();
-    if (engineError) {
+    let dbHealthy = true;
+    let dbError: string | null = null;
+    if (database) {
+      try {
+        await database.pool.query("SELECT 1");
+      } catch (err) {
+        dbHealthy = false;
+        dbError = err instanceof Error ? err.message : "Database connection failed";
+      }
+    }
+
+    if (engineError || !dbHealthy) {
       reply.code(503);
       return {
         status: "degraded",
-        engineAvailable: false,
-        error: engineError,
+        engineAvailable: !engineError,
+        engineError,
+        dbAvailable: dbHealthy,
+        dbError,
         openingBookLoaded: Boolean(openingBook),
       };
     }
@@ -123,6 +158,7 @@ export const buildServer = async () => {
     return {
       status: "ready",
       engineAvailable: true,
+      dbAvailable: true,
       openingBookLoaded: Boolean(openingBook),
       openingBookEntries: openingBook?.entryCount ?? 0,
     };
@@ -206,12 +242,21 @@ export const buildServer = async () => {
     return gameService.offerDraw(params.id);
   });
 
-  app.setErrorHandler((error, _request, reply) => {
-    app.log.error({ error }, "Request failed");
+  app.setErrorHandler((error, request, reply) => {
+    request.log.error({ error, requestId: request.id }, "Request failed");
     if (error instanceof HttpError) {
       reply
         .code(error.statusCode)
         .send(error.payload ?? { error: error.message });
+      return;
+    }
+
+    if (error.statusCode === 429) {
+      reply.code(429).send({
+        statusCode: 429,
+        error: "Too Many Requests",
+        message: error.message ?? "Too Many Requests",
+      });
       return;
     }
 
@@ -220,14 +265,15 @@ export const buildServer = async () => {
       return;
     }
 
-    reply.code(500).send({
-      error: (error as Error).message || "Internal server error",
+    reply.code(error.statusCode ?? 500).send({
+      error: error.message || "Internal server error",
     });
   });
 
   app.addHook("onResponse", async (request, reply) => {
     request.log.info(
       {
+        requestId: request.id,
         statusCode: reply.statusCode,
         responseTime: reply.elapsedTime,
       },
@@ -237,6 +283,7 @@ export const buildServer = async () => {
 
   app.addHook("onClose", async () => {
     speculationEngine.cancelAll();
+    await repository.flush();
     await workerPool.stop();
     await contextStore.disconnect();
     await database?.pool.end();

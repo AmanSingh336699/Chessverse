@@ -6,6 +6,7 @@ import type {
   GameSnapshot,
   MoveHistoryEntry,
   PlayerColor,
+  PlayerMoveRequest,
   PlayerMoveResponse,
   ResignResponse,
   UndoRequest,
@@ -299,15 +300,25 @@ export const useGameController = () => {
       from,
       to,
       promotion,
+      clientMoveId,
+      expectedPly,
       signal,
     }: {
       gameId: string;
       from: string;
       to: string;
       promotion?: PromotionPiece;
+      clientMoveId?: string;
+      expectedPly?: number;
       signal?: AbortSignal;
     }) => {
-      const payload = promotion ? { from, to, promotion } : { from, to };
+      const payload: PlayerMoveRequest = {
+        clientMoveId: clientMoveId ?? crypto.randomUUID(),
+        expectedPly: expectedPly ?? 0,
+        from,
+        to,
+        ...(promotion ? { promotion } : {}),
+      };
       return api.submitPlayerMove(gameId, payload, signal);
     },
   });
@@ -555,6 +566,8 @@ export const useGameController = () => {
         from: sourceSquare,
         to: targetSquare,
         ...(promotion ? { promotion } : {}),
+        clientMoveId: crypto.randomUUID(),
+        expectedPly: currentGame.moveHistory.length,
         signal: controller.signal,
       });
 

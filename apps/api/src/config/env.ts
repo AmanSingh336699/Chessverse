@@ -100,8 +100,12 @@ const envSchema = z.object({
     }, z.boolean())
     .default(true),
   CONTEXT_REDIS_TTL_SECONDS: z.coerce.number().int().positive().default(86400),
-  CONTEXT_LOCK_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
+  CONTEXT_LOCK_TIMEOUT_MS: z.coerce.number().int().positive().default(15000),
   CONTEXT_LOCK_ACQUIRE_MS: z.coerce.number().int().positive().default(500),
+  MAX_CONCURRENT_GAMES: z.coerce.number().int().positive().default(1000),
+  GAME_INACTIVITY_TTL_MS: z.coerce.number().int().positive().default(7200000),
+  RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
+  RATE_LIMIT_WINDOW: z.string().default("1 minute"),
   FRONTEND_ORIGIN: z.string().min(1).default("http://localhost:5173"),
   CLASSIFICATION_BEST_MAX: z.coerce.number().positive().default(0.2),
   CLASSIFICATION_EXCELLENT_MAX: z.coerce.number().positive().default(0.5),
@@ -113,6 +117,10 @@ const envSchema = z.object({
 
 export const env = envSchema.parse(process.env);
 export type Env = typeof env;
+
+if (env.NODE_ENV === "production" && !env.DATABASE_URL) {
+  throw new Error("DATABASE_URL is strictly required when NODE_ENV=production");
+}
 
 
 

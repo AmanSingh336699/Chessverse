@@ -51,6 +51,7 @@ export class WorkerPool {
     private readonly queue: QueueItem[] = [];
     private readonly crashRecords = new Map<number, WorkerCrashRecord>();
     private readonly consecutiveHeartbeatFailures = new Map<number, number>();
+    private readonly workerTaskPriority = new Map<number, TaskPriority>();
 
     private heartbeatTimer: NodeJS.Timeout | null = null;
     private metricsTimer: NodeJS.Timeout | null = null;
@@ -102,6 +103,7 @@ export class WorkerPool {
         while (attempt < maxAttempts) {
             attempt += 1;
             const worker = await this.acquire(gameId, priority);
+            this.workerTaskPriority.set(worker.getWorkerId(), priority);
 
             try {
                 const result = await task(worker);
@@ -147,6 +149,7 @@ export class WorkerPool {
                     throw err;
                 }
             } finally {
+                this.workerTaskPriority.delete(worker.getWorkerId());
                 this.release(worker);
             }
         }
@@ -241,6 +244,22 @@ export class WorkerPool {
         gameId: string,
         priority: TaskPriority,
     ): Promise<StockfishWorker> {
+        // Reserve at least 1 dedicated worker for interactive priority-1 moves
+        if (priority === 2) {
+            const idleCount = this.workers.filter((w) => w.getState() === "IDLE").length;
+            if (idleCount <= 1 && this.workers.length > 1) {
+                this.metrics.totalBackgroundRejections += 1;
+                this.logger.debug(
+                    { gameId, idleCount, poolSize: this.workers.length },
+                    "Background task rejected — reserved dedicated worker held for interactive moves",
+                );
+                return Promise.reject(
+                    new HttpError(503, "Engine busy, retry", {
+                        error: "Engine busy, retry",
+                    }),
+                );
+            }
+        }
 
         const idle = this.findIdleWorker();
         if (idle) {
@@ -259,6 +278,21 @@ export class WorkerPool {
                     "Pre-empted warmup worker for priority-1 request",
                 );
                 return Promise.resolve(warmup);
+            }
+
+            // Pre-emption: check if any busy worker is executing a background task
+            for (const worker of this.workers) {
+                if (
+                    worker.getState() === "BUSY" &&
+                    this.workerTaskPriority.get(worker.getWorkerId()) === 2
+                ) {
+                    this.logger.info(
+                        { workerId: worker.getWorkerId(), gameId },
+                        "Pre-empting background analysis worker for interactive request",
+                    );
+                    worker.stopSearch();
+                    break;
+                }
             }
         }
 

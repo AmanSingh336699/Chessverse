@@ -160,7 +160,27 @@ export class ContextStore {
         }
       }
 
+      let renewalTimer: NodeJS.Timeout | null = setInterval(async () => {
+        try {
+          if (!this.redis) return;
+          const renewScript = `
+            if redis.call("get", KEYS[1]) == ARGV[1] then
+              return redis.call("expire", KEYS[1], ARGV[2])
+            else
+              return 0
+            end
+          `;
+          await this.redis.eval(renewScript, 1, lockKey, lockValue, lockTimeoutSec);
+        } catch {
+          // Non-critical renewal failure
+        }
+      }, Math.max(1000, Math.floor(env.CONTEXT_LOCK_TIMEOUT_MS / 3)));
+
       return async () => {
+        if (renewalTimer) {
+          clearInterval(renewalTimer);
+          renewalTimer = null;
+        }
         try {
           // Only release if we still own the lock (compare-and-delete via Lua)
           const script = `

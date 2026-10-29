@@ -17,6 +17,8 @@
   "dependencies": {
     "@chessverse/contracts": "*",
     "@fastify/cors": "^11.0.0",
+    "@fastify/helmet": "^13.2.0",
+    "@fastify/rate-limit": "^10.3.0",
     "chess.js": "^1.1.0",
     "drizzle-orm": "^0.41.0",
     "fastify": "^5.2.1",

@@ -183,6 +183,8 @@ export const moveResponseSchema = z.object({
 export type MoveResponse = z.infer<typeof moveResponseSchema>;
 
 export const playerMoveRequestSchema = z.object({
+  clientMoveId: z.string().min(1),
+  expectedPly: z.number().int().nonnegative(),
   from: z.string().length(2),
   to: z.string().length(2),
   promotion: z.enum(["q", "r", "b", "n"]).optional(),

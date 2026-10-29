@@ -3,6 +3,7 @@ import type {
   PersistentGameRepository,
   StoredGame,
 } from "../types.js";
+import { env } from "../config/env.js";
 
 type EngineStatsSnapshot = {
   totalGames: number;
@@ -28,14 +29,60 @@ const createEmptyEngineStats = (): EngineStatsSnapshot => ({
 
 export class InMemoryGameRepository implements PersistentGameRepository {
   private readonly games = new Map<string, StoredGame>();
+  private readonly lastAccessed = new Map<string, number>();
   private readonly engineStats = new Map<string, EngineStatsSnapshot>();
 
+  constructor(
+    private readonly maxGames: number = env.MAX_CONCURRENT_GAMES,
+    private readonly ttlMs: number = env.GAME_INACTIVITY_TTL_MS,
+  ) {}
+
   async getGame(gameId: string): Promise<StoredGame | null> {
-    return this.games.get(gameId) ?? null;
+    this.evictExpired();
+    const game = this.games.get(gameId);
+    if (game) {
+      this.lastAccessed.set(gameId, Date.now());
+      return structuredClone(game);
+    }
+    return null;
   }
 
   async saveGame(game: StoredGame): Promise<void> {
+    this.evictExpired();
+    if (!this.games.has(game.gameId) && this.games.size >= this.maxGames) {
+      this.evictOldest();
+    }
     this.games.set(game.gameId, structuredClone(game));
+    this.lastAccessed.set(game.gameId, Date.now());
+  }
+
+  private evictExpired(): void {
+    const now = Date.now();
+    for (const [gameId, accessTime] of this.lastAccessed.entries()) {
+      if (now - accessTime > this.ttlMs) {
+        this.games.delete(gameId);
+        this.lastAccessed.delete(gameId);
+      }
+    }
+  }
+
+  private evictOldest(): void {
+    let oldestId: string | null = null;
+    let oldestTime = Infinity;
+    for (const [gameId, time] of this.lastAccessed.entries()) {
+      if (time < oldestTime) {
+        oldestTime = time;
+        oldestId = gameId;
+      }
+    }
+    if (oldestId) {
+      this.games.delete(oldestId);
+      this.lastAccessed.delete(oldestId);
+    }
+  }
+
+  getGameCount(): number {
+    return this.games.size;
   }
 
   async incrementEngineStats(delta: EngineStatDelta): Promise<void> {
