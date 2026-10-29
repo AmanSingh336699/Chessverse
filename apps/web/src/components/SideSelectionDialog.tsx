@@ -104,7 +104,7 @@ export const SideSelectionDialog = ({
           <div className="absolute inset-0 bg-[rgba(3,8,15,0.64)] backdrop-blur-[7px]" />
 
           <motion.div
-            className="relative z-1 w-full max-w-[720px] rounded-[34px] border border-brand-200/14 bg-[linear-gradient(180deg,rgba(10,20,33,0.96),rgba(8,16,28,0.98))] p-5 shadow-[0_35px_120px_rgba(2,8,20,0.68),inset_0_1px_0_rgba(255,255,255,0.06)] sm:p-8"
+            className="relative z-1 w-full max-w-[720px] max-h-[92vh] overflow-y-auto rounded-[26px] sm:rounded-[34px] border border-brand-200/14 bg-[linear-gradient(180deg,rgba(10,20,33,0.96),rgba(8,16,28,0.98))] p-4 sm:p-7 md:p-8 shadow-[0_35px_120px_rgba(2,8,20,0.68),inset_0_1px_0_rgba(255,255,255,0.06)] [scrollbar-width:thin] [scrollbar-color:rgba(124,231,214,0.3)_transparent]"
             initial={{ opacity: 0, scale: 0.96, y: 18 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 10 }}
@@ -122,23 +122,23 @@ export const SideSelectionDialog = ({
               </p>
               <h2
                 id="side-selection-title"
-                className="font-display mt-3 text-3xl text-brand-100 sm:text-[2.7rem]"
+                className="font-display mt-2 sm:mt-3 text-2xl sm:text-3xl md:text-[2.7rem]"
               >
                 Choose Your Side
               </h2>
               <p
                 id="side-selection-copy"
-                className="mt-3 max-w-2xl text-sm leading-7 text-stone-300/88 sm:text-base"
+                className="mt-2 sm:mt-3 max-w-2xl text-xs sm:text-base leading-relaxed text-stone-300/88"
               >
                 Select which color you want to play as. The board is waiting
                 behind the curtain and will unlock the moment your choice lands.
               </p>
 
-              <div className="mt-6 flex flex-col gap-2">
+              <div className="mt-5 sm:mt-6 flex flex-col gap-2">
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-400">
                   Select Difficulty
                 </p>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5 sm:gap-2">
                   {(
                     [
                       { value: "beginner", label: "Beginner" },
@@ -151,7 +151,7 @@ export const SideSelectionDialog = ({
                       key={opt.value}
                       type="button"
                       onClick={() => setDifficulty(opt.value)}
-                      className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                      className={`rounded-full border px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium transition touch-manipulation ${
                         difficulty === opt.value
                           ? "border-brand-300/50 bg-brand-300/20 text-brand-100 shadow-[0_0_12px_rgba(86,208,255,0.2)]"
                           : "border-white/10 bg-white/5 text-stone-300 hover:border-brand-300/30 hover:bg-brand-300/10 hover:text-brand-100"
@@ -163,7 +163,7 @@ export const SideSelectionDialog = ({
                 </div>
               </div>
 
-              <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="mt-6 sm:mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {OPTIONS.map((option) => {
                   const highlighted =
                     randomPreview === option.color && randomizing;
@@ -172,7 +172,7 @@ export const SideSelectionDialog = ({
                     <motion.button
                       key={option.color}
                       type="button"
-                      className="group relative overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] px-4 py-5 text-left shadow-[0_18px_55px_rgba(2,8,20,0.35)] transition sm:px-5 sm:py-6"
+                      className="group relative overflow-hidden rounded-[22px] sm:rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] p-4 sm:px-5 sm:py-6 text-left shadow-[0_18px_55px_rgba(2,8,20,0.35)] transition touch-manipulation"
                       onClick={() => onChoose(option.color)}
                       whileHover={{
                         y: -2,
@@ -191,15 +191,15 @@ export const SideSelectionDialog = ({
                       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.06),transparent_42%)] opacity-70" />
                       <div className="relative z-1">
                         <div
-                          className="inline-flex h-18 w-18 items-center justify-center rounded-[24px] border border-white/10 bg-white/6 text-[3.6rem] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                          className="inline-flex h-14 w-14 sm:h-18 sm:w-18 items-center justify-center rounded-[18px] sm:rounded-3xl border border-white/10 bg-white/6 text-4xl sm:text-[3.6rem] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
                           style={{ color: option.accent }}
                         >
                           {option.glyph}
                         </div>
-                        <p className="mt-5 text-xl font-semibold text-brand-100">
+                        <p className="mt-3.5 sm:mt-5 text-lg sm:text-xl font-semibold text-brand-100">
                           {option.label}
                         </p>
-                        <p className="mt-2 text-sm leading-6 text-stone-300/82">
+                        <p className="mt-1 sm:mt-2 text-xs sm:text-sm leading-5 sm:leading-6 text-stone-300/82">
                           {option.description}
                         </p>
                       </div>

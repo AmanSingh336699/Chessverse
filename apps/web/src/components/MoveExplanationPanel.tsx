@@ -188,15 +188,30 @@ export const MoveExplanationPanel = ({
   if (mobile) {
     return (
       <AnimatePresence>
+        {/* Backdrop Scrim */}
         <motion.div
-          className="fixed inset-x-0 bottom-0 z-50 max-h-[62vh] overflow-y-auto rounded-t-3xl border-t border-white/10 bg-[#0d1726]/96 px-5 py-5 backdrop-blur-xl"
+          key="explain-scrim"
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+        />
+        {/* Mobile Bottom Sheet */}
+        <motion.div
+          key="explain-drawer"
+          className="fixed inset-x-0 bottom-0 z-50 max-h-[82vh] overflow-y-auto overscroll-contain rounded-t-4xl border-t border-white/15 bg-[#0a121e]/98 px-5 pt-3 pb-10 shadow-[0_-20px_50px_rgba(0,0,0,0.8)] backdrop-blur-2xl"
           initial={{ y: "100%" }}
           animate={{ y: 0 }}
           exit={{ y: "100%" }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          transition={{ type: "spring", stiffness: 320, damping: 32 }}
         >
-          <div className="mb-4 flex justify-center">
-            <div className="h-1 w-10 rounded-full bg-white/20" />
+          <div
+            className="mb-3 flex cursor-pointer justify-center py-2 touch-manipulation"
+            onClick={onClose}
+            aria-label="Swipe or tap down to close"
+          >
+            <div className="h-1.5 w-12 rounded-full bg-white/25 active:bg-white/40" />
           </div>
           {content}
         </motion.div>

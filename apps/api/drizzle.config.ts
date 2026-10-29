@@ -42,6 +42,9 @@ const loadEnvFile = (envPath: string) => {
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(currentDir, "../../");
 const envCandidates = [
+  resolve(currentDir, ".env.local"),
+  resolve(currentDir, ".env"),
+  resolve(currentDir, ".env.example"),
   resolve(repoRoot, ".env.local"),
   resolve(repoRoot, ".env"),
   resolve(repoRoot, ".env.example"),

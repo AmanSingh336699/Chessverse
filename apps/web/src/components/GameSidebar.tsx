@@ -201,18 +201,18 @@ const ReviewSummaryCard = ({ history }: { history: MoveHistoryEntry[] }) => {
   ] as const;
 
   return (
-      <div className="rounded-2xl border border-white/8 bg-bg-surface px-4 py-4">
-          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-brand-200/80">
+      <div className="rounded-xl sm:rounded-2xl border border-white/8 bg-bg-surface p-3 sm:p-4">
+          <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.22em] text-brand-200/80">
               Review Summary
           </p>
-          <p className="mt-2 text-sm text-stone-300/85">
+          <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-stone-300/85">
               Real-time classification totals for both sides.
           </p>
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <div className="mt-2.5 sm:mt-4 grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2">
               {(["human", "ai"] as const).map((side) => (
                   <div
                       key={side}
-                      className="rounded-2xl border border-white/8 bg-white/3 px-4 py-3"
+                      className="rounded-xl sm:rounded-2xl border border-white/8 bg-white/3 p-2.5 sm:px-4 sm:py-3"
                   >
                       <div className="flex items-center justify-between">
                           <p className="text-sm font-semibold text-stone-100">
@@ -426,10 +426,10 @@ export const GameSidebar = ({
           transition={{ duration: 0.45, delay: 0.1 }}
       >
           {showInfo && (
-              <section className="rounded-[32px] glass-panel p-5 sm:p-6 lg:p-7 relative overflow-hidden flex flex-col gap-6">
+              <section className="rounded-2xl sm:rounded-4xl glass-panel p-3.5 sm:p-6 lg:p-7 relative overflow-hidden flex flex-col gap-4 sm:gap-6">
                   {/* Header Row */}
                   <div className="flex items-center justify-between z-10">
-                      <h3 className="text-xl font-bold tracking-wide text-brand-100 uppercase">
+                      <h3 className="text-lg sm:text-xl font-bold tracking-wide text-brand-100 uppercase">
                           Status
                       </h3>
                       <StatusBadge
@@ -585,14 +585,14 @@ export const GameSidebar = ({
           )}
 
           {showMoves && (
-              <section className="rounded-[32px] glass-panel p-5 sm:p-6 lg:p-7 relative overflow-hidden flex flex-col">
-                  <div className="mb-5 flex flex-wrap items-center justify-between gap-3 relative z-10">
+              <section className="rounded-2xl sm:rounded-4xl glass-panel p-3.5 sm:p-6 lg:p-7 relative overflow-hidden flex flex-col">
+                  <div className="mb-3.5 sm:mb-5 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 relative z-10">
                       <div>
-                          <h3 className="text-xl font-bold tracking-wide text-brand-100 uppercase">
+                          <h3 className="text-lg sm:text-xl font-bold tracking-wide text-brand-100 uppercase">
                               Match Log
                           </h3>
                       </div>
-                      <span className="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-xs text-stone-400 font-mono tracking-wider shadow-inner">
+                      <span className="rounded-full border border-white/10 bg-white/6 px-2.5 sm:px-3 py-1 text-[11px] sm:text-xs text-stone-400 font-mono tracking-wider shadow-inner">
                           {history.length} PLY
                       </span>
                   </div>

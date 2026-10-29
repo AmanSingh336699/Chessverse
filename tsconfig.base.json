@@ -12,7 +12,6 @@
     "exactOptionalPropertyTypes": true,
     "skipLibCheck": true,
     "declaration": true,
-    "sourceMap": true,
-    "baseUrl": "."
+    "sourceMap": true
   }
 }

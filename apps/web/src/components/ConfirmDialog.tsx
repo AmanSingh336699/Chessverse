@@ -31,7 +31,7 @@ export const ConfirmDialog = ({
         >
           <div className="absolute inset-0 bg-[rgba(3,8,15,0.62)] backdrop-blur-[6px]" />
           <motion.div
-            className="relative z-[1] w-full max-w-[440px] rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,20,33,0.96),rgba(8,16,28,0.98))] p-6 shadow-[0_28px_100px_rgba(2,8,20,0.58)] sm:p-7"
+            className="relative z-[1] w-full max-w-[440px] max-h-[90vh] overflow-y-auto rounded-3xl sm:rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,20,33,0.96),rgba(8,16,28,0.98))] p-5 sm:p-7 shadow-[0_28px_100px_rgba(2,8,20,0.58)]"
             initial={{ opacity: 0, y: 16, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.96 }}
@@ -42,24 +42,24 @@ export const ConfirmDialog = ({
             <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-gradient-gold">
               Confirmation
             </p>
-            <h3 className="font-display mt-3 text-3xl text-brand-100">
+            <h3 className="font-display mt-2 sm:mt-3 text-2xl sm:text-3xl text-brand-100">
               {title}
             </h3>
-            <p className="mt-3 text-sm leading-7 text-stone-300/86">
+            <p className="mt-2 sm:mt-3 text-xs sm:text-sm leading-6 sm:leading-7 text-stone-300/86">
               {description}
             </p>
 
-            <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="mt-5 sm:mt-6 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
               <button
                 type="button"
-                className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-stone-200 transition hover:bg-white/8"
+                className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-stone-200 transition hover:bg-white/8 touch-manipulation"
                 onClick={onCancel}
               >
                 {cancelLabel}
               </button>
               <button
                 type="button"
-                className="inline-flex items-center justify-center rounded-2xl btn-premium px-4 py-3 text-sm font-bold"
+                className="inline-flex items-center justify-center rounded-2xl btn-premium px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-bold touch-manipulation"
                 onClick={onConfirm}
               >
                 {confirmLabel}

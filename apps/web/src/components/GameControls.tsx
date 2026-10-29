@@ -17,11 +17,11 @@ interface GameControlsProps {
   disabled: boolean;
 }
 
-const panelClass = "rounded-[32px] glass-panel p-5 sm:p-6 lg:p-7";
+const panelClass = "rounded-3xl sm:rounded-4xl glass-panel p-3.5 sm:p-6 lg:p-7";
 const eyebrowClass =
-  "text-[11px] font-bold uppercase tracking-[0.24em] text-gradient-gold";
+  "text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.24em] text-gradient-gold";
 const buttonClass =
-  "inline-flex w-full items-center justify-center rounded-2xl btn-premium px-4 py-3 text-sm font-bold";
+  "inline-flex w-full items-center justify-center rounded-2xl btn-premium px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-bold touch-manipulation select-none active:scale-95 transition-transform";
 
 const difficultyOptions: Array<{
   value: Difficulty;
@@ -138,20 +138,20 @@ export const GameControls = ({
           </div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.04fr)_minmax(0,0.96fr)]">
-          <div className="rounded-[28px] border border-white/10 bg-white/4 p-4 sm:p-5">
-            <div className="flex flex-wrap items-start gap-4">
-              <div className="inline-flex h-16 w-16 shrink-0 items-center justify-center rounded-[22px] border border-white/10 bg-white/6 text-[2.7rem] shadow-[0_18px_40px_rgba(2,8,20,0.3)]">
+        <div className="grid gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1.04fr)_minmax(0,0.96fr)]">
+          <div className="rounded-[22px] sm:rounded-[28px] border border-white/10 bg-white/4 p-3.5 sm:p-5">
+            <div className="flex flex-wrap items-start gap-3 sm:gap-4">
+              <div className="inline-flex h-12 w-12 sm:h-16 sm:w-16 shrink-0 items-center justify-center rounded-[18px] sm:rounded-[22px] border border-white/10 bg-white/6 text-[2rem] sm:text-[2.7rem] shadow-[0_18px_40px_rgba(2,8,20,0.3)]">
                 <span className={side.accent}>{side.glyph}</span>
               </div>
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-[10px] uppercase tracking-[0.2em] text-stone-400">
                   Selected Side
                 </p>
-                <p className="mt-2 text-lg font-semibold text-brand-100">
+                <p className="mt-1 text-base sm:text-lg font-semibold text-brand-100">
                   {side.label}
                 </p>
-                <p className="mt-2 text-sm leading-6 text-stone-300/82">
+                <p className="mt-1.5 text-xs sm:text-sm leading-5 sm:leading-6 text-stone-300/82">
                   {side.copy} Switch sides from the launch dialog when you start
                   a fresh game.
                 </p>
@@ -159,34 +159,34 @@ export const GameControls = ({
             </div>
           </div>
 
-          <div className="rounded-[28px] border border-white/10 bg-white/4 p-4 sm:p-5">
+          <div className="rounded-[22px] sm:rounded-[28px] border border-white/10 bg-white/4 p-3.5 sm:p-5">
             <p className="text-[10px] uppercase tracking-[0.2em] text-stone-400">
               Live Actions
             </p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-              <div className="rounded-2xl border border-white/8 bg-white/4 px-4 py-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-brand-100">
+            <div className="mt-2.5 sm:mt-3 grid gap-2.5 sm:gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+              <div className="rounded-xl sm:rounded-2xl border border-white/8 bg-white/4 px-3 sm:px-4 py-2.5 sm:py-3">
+                <div className="flex items-center justify-between gap-2 sm:gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm font-semibold text-brand-100">
                       Undo Window
                     </p>
-                    <p className="mt-1 text-xs leading-5 text-stone-400">
+                    <p className="mt-0.5 sm:mt-1 text-[11px] sm:text-xs leading-4 sm:leading-5 text-stone-400">
                       {undoHint}
                     </p>
                   </div>
                   <span
-                    className={`inline-flex h-3.5 w-3.5 rounded-full ${
+                    className={`inline-flex h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0 rounded-full ${
                       canUndo ? "bg-emerald-300 shadow-[0_0_14px_rgba(110,231,183,0.4)]" : "bg-white/18"
                     } ${undoPulseVisible ? "animate-pulse" : ""}`}
                   />
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-white/8 bg-white/4 px-4 py-3">
-                <p className="text-sm font-semibold text-brand-100">
+              <div className="rounded-xl sm:rounded-2xl border border-white/8 bg-white/4 px-3 sm:px-4 py-2.5 sm:py-3">
+                <p className="text-xs sm:text-sm font-semibold text-brand-100">
                   Premove Lane
                 </p>
-                <p className="mt-1 text-xs leading-5 text-stone-400">
+                <p className="mt-0.5 sm:mt-1 text-[11px] sm:text-xs leading-4 sm:leading-5 text-stone-400">
                   {premoveStatusText ??
                     "Queue your next move while the AI thinks. One premove stays live until it executes or you cancel it."}
                 </p>
@@ -196,7 +196,7 @@ export const GameControls = ({
         </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-5 sm:mt-6 grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
         <motion.button
           whileHover={disabled ? {} : { scale: 1.02 }}
           whileTap={disabled ? {} : { scale: 0.98 }}

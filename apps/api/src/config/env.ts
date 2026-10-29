@@ -92,6 +92,13 @@ const envSchema = z.object({
   SYZYGY_PATH: z.string().optional().transform(normalizeOptionalEnvValue),
   MAX_WORKER_CRASHES: z.coerce.number().int().positive().default(3),
   WORKER_CRASH_WINDOW_MS: z.coerce.number().int().positive().default(60000),
+  CLIENT_ANALYSIS_ENABLED: z
+    .preprocess((val) => {
+      if (typeof val === "string") return val.trim().toLowerCase() === "true" || val.trim() === "1";
+      if (typeof val === "boolean") return val;
+      return true;
+    }, z.boolean())
+    .default(true),
   CONTEXT_REDIS_TTL_SECONDS: z.coerce.number().int().positive().default(86400),
   CONTEXT_LOCK_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
   CONTEXT_LOCK_ACQUIRE_MS: z.coerce.number().int().positive().default(500),

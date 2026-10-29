@@ -146,7 +146,7 @@ export const GameOverlay = ({
           exit={{ opacity: 0 }}
         >
           <motion.div
-            className={`w-[min(92%,24rem)] rounded-[30px] glass-panel-accent border p-8 text-center ${tone.ring}`}
+            className={`w-[min(94%,26rem)] max-h-[92vh] overflow-y-auto rounded-[26px] sm:rounded-[30px] glass-panel-accent border p-5 sm:p-8 text-center ${tone.ring}`}
             initial={{ scale: 0.88, y: 32, opacity: 0 }}
             animate={{ scale: 1, y: 0, opacity: 1 }}
             exit={{ scale: 0.96, y: 12, opacity: 0 }}
@@ -165,26 +165,26 @@ export const GameOverlay = ({
               <ResultGlyph tone={result.tone} />
             </motion.span>
 
-            <p className="mt-3 text-[11px] font-bold uppercase tracking-[0.24em] text-gradient-gold">
+            <p className="mt-2.5 sm:mt-3 text-[11px] font-bold uppercase tracking-[0.24em] text-gradient-gold">
               Match Complete
             </p>
 
-            <h2 className="font-display mt-2 text-4xl text-brand-100 drop-shadow-lg">
+            <h2 className="font-display mt-1 sm:mt-2 text-3xl sm:text-4xl text-brand-100 drop-shadow-lg">
               {result.headline}
             </h2>
 
-            <p className="mt-3 text-sm font-medium leading-6 text-stone-300/90">
+            <p className="mt-2 sm:mt-3 text-xs sm:text-sm font-medium leading-relaxed text-stone-300/90">
               {result.subtitle}
             </p>
 
-            <div className="mt-4 flex justify-center gap-4">
-              <div className="rounded-xl border border-white/8 bg-white/4 px-3 py-2 text-center">
+            <div className="mt-4 flex justify-center gap-3 sm:gap-4">
+              <div className="rounded-xl border border-white/8 bg-white/4 px-3 py-1.5 sm:py-2 text-center">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Moves</p>
-                <p className="text-sm font-semibold text-stone-200">{game.moveHistory.length}</p>
+                <p className="text-xs sm:text-sm font-semibold text-stone-200">{game.moveHistory.length}</p>
               </div>
-              <div className="rounded-xl border border-white/8 bg-white/4 px-3 py-2 text-center">
+              <div className="rounded-xl border border-white/8 bg-white/4 px-3 py-1.5 sm:py-2 text-center">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-stone-500">Final Eval</p>
-                <p className="text-sm font-semibold text-stone-200">
+                <p className="text-xs sm:text-sm font-semibold text-stone-200">
                   {game.evaluation !== null
                     ? `${game.evaluation > 0 ? "+" : ""}${game.evaluation.toFixed(1)}`
                     : "0.0"}
@@ -192,10 +192,10 @@ export const GameOverlay = ({
               </div>
             </div>
 
-            <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="mt-5 sm:mt-6 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
               <button
                 type="button"
-                className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-stone-200 transition hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 sm:py-3 text-xs sm:text-sm font-bold text-stone-200 transition hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-40 touch-manipulation"
                 onClick={onUndo}
                 disabled={!canUndo}
                 title={undoHint}
@@ -204,7 +204,7 @@ export const GameOverlay = ({
               </button>
               <button
                 type="button"
-                className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-stone-200 transition hover:bg-white/8"
+                className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 sm:py-3 text-xs sm:text-sm font-bold text-stone-200 transition hover:bg-white/8 touch-manipulation"
                 onClick={onReview}
               >
                 Review Game
@@ -212,7 +212,7 @@ export const GameOverlay = ({
               <motion.button
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
-                className="inline-flex items-center justify-center rounded-2xl btn-premium px-4 py-3 text-sm font-bold"
+                className="inline-flex items-center justify-center rounded-2xl btn-premium px-3 py-2.5 sm:py-3 text-xs sm:text-sm font-bold touch-manipulation"
                 onClick={onNewGame}
               >
                 Play Again
