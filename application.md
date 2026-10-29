@@ -595,10 +595,11 @@ erDiagram
 
 ### 16.1 Current Test Infrastructure
 - **Test Runners Configured:** Vitest is configured across all workspaces (`packages/contracts`, `apps/api`, `apps/web`).
-- **Automated Test Suites (112 passing tests across 14 test suites):**
+- **Automated Test Suites (114 passing tests across 15 test suites):**
   - `@chessverse/contracts`: `src/index.test.ts` (17 tests: auth schemas, profile, login, history, and style profiles).
   - `@chessverse/web`: `src/lib/chess.test.ts` (10 tests: FEN parsing, legal moves, check squares, piece values, premove swap turn, candidate targets, validation, descriptions).
   - `@chessverse/api`:
+    - `src/engine/soak.test.ts` (2 tests: 40-ply fuzz/soak invariant testing, high-concurrency game generation without ID collision).
     - `src/server.test.ts` (12 tests: health, ready, rate limit, styles, auth register, login, me, games auth).
     - `src/services/authService.test.ts` (4 tests: Scrypt hashing, verify, HMAC tokens, create user).
     - `src/engine/style/styleProfiles.test.ts` (11 tests).
@@ -609,8 +610,10 @@ erDiagram
     - `src/repositories/hybridGameRepository.test.ts` (6 tests).
     - `src/repositories/idempotencyStore.test.ts` (4 tests).
     - `src/openingBook/polyglotBook.test.ts` (4 tests).
-    - `src/services/gameService.test.ts` (6 tests).
+    - `src/services/gameService.reliability.test.ts` (6 tests).
     - `src/services/gameLock.test.ts` (6 tests).
+- **Frontend Hardening & Crash Recovery:**
+  - `ErrorBoundary.tsx`: Implemented React error boundary protecting the application root against unhandled rendering glitches with dark-mode recovery dialog and state reset.
 - **Quality Verification Performed:**
   - Full TypeScript strict typechecking executed (`npm run typecheck`): **Passed with 0 errors** on all workspaces.
   - Production builds verified (`npm run build`): **Passed with 0 errors** across all workspaces.

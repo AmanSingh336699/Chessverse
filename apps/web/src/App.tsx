@@ -417,7 +417,12 @@ const App = () => {
     <div className="relative min-h-screen overflow-x-hidden bg-bg-base text-brand-100 flex flex-col justify-between selection:bg-brand-200/30 selection:text-brand-100">
       <Navbar
         currentView={currentView}
-        onNavigate={setCurrentView}
+        onNavigate={(view) => {
+          if (view === "arena" && !controller.hasLiveGame) {
+            controller.openSideSelection();
+          }
+          setCurrentView(view);
+        }}
         user={auth.user}
         onOpenAuth={() => setIsAuthOpen(true)}
         onOpenHistory={() => setIsHistoryOpen(true)}
@@ -942,7 +947,8 @@ const App = () => {
       )}
 
       <SideSelectionDialog
-        open={controller.sideSelectionOpen}
+        open={currentView === "arena" && controller.sideSelectionOpen}
+        onClose={controller.closeSideSelection}
         onChoose={controller.chooseSide}
         difficulty={controller.difficulty}
         setDifficulty={controller.setDifficulty}

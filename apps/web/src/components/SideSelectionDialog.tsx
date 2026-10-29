@@ -9,6 +9,7 @@ interface SideSelectionDialogProps {
   setDifficulty: (difficulty: Difficulty) => void;
   style?: StyleId;
   setStyle?: (style: StyleId) => void;
+  onClose?: () => void;
 }
 
 const STYLES: Array<{
@@ -83,6 +84,7 @@ export const SideSelectionDialog = ({
   setDifficulty,
   style = "solid",
   setStyle,
+  onClose,
 }: SideSelectionDialogProps) => {
   const [randomizing, setRandomizing] = useState(false);
   const [randomPreview, setRandomPreview] = useState<PlayerColor | null>(null);
@@ -147,7 +149,10 @@ export const SideSelectionDialog = ({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.22 }}
         >
-          <div className="absolute inset-0 bg-[rgba(3,8,15,0.64)] backdrop-blur-[7px]" />
+          <div
+            onClick={onClose}
+            className="absolute inset-0 bg-[rgba(3,8,15,0.64)] backdrop-blur-[7px] cursor-pointer"
+          />
 
           <motion.div
             className="relative z-1 w-full max-w-[760px] max-h-[92vh] overflow-y-auto rounded-[26px] sm:rounded-[34px] border border-brand-200/14 bg-[linear-gradient(180deg,rgba(10,20,33,0.96),rgba(8,16,28,0.98))] p-4 sm:p-7 md:p-8 shadow-[0_35px_120px_rgba(2,8,20,0.68),inset_0_1px_0_rgba(255,255,255,0.06)] [scrollbar-width:thin] [scrollbar-color:rgba(124,231,214,0.3)_transparent]"
@@ -160,6 +165,19 @@ export const SideSelectionDialog = ({
             aria-labelledby="side-selection-title"
             aria-describedby="side-selection-copy"
           >
+            {onClose ? (
+              <button
+                type="button"
+                onClick={onClose}
+                className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10 rounded-full p-2 text-stone-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                aria-label="Close match selection"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            ) : null}
+
             <div className="pointer-events-none absolute inset-0 rounded-[34px] bg-[radial-gradient(circle_at_top,rgba(86,208,255,0.08),transparent_34%),radial-gradient(circle_at_bottom_left,rgba(124,231,214,0.08),transparent_30%)]" />
 
             <div className="relative z-1">

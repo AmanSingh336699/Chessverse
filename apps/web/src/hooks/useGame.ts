@@ -140,9 +140,7 @@ export const useGameController = () => {
   const [analysisPendingKeys, setAnalysisPendingKeys] = useState<string[]>([]);
   const [mobileTab, setMobileTab] = useState<"info" | "moves" | "controls">("info");
   const [isRestoringGame, setIsRestoringGame] = useState(false);
-  const [sideSelectionOpen, setSideSelectionOpen] = useState<boolean>(
-    !readStoredGameId(),
-  );
+  const [sideSelectionOpen, setSideSelectionOpen] = useState<boolean>(false);
   const [confirmNewGameOpen, setConfirmNewGameOpen] = useState(false);
   const [undoPulseVisible, setUndoPulseVisible] = useState(false);
   const [premoveSquares, setPremoveSquares] = useState<[string, string] | null>(null);
@@ -399,7 +397,6 @@ export const useGameController = () => {
 
     if (!storedGameId) {
       setIsRestoringGame(false);
-      setSideSelectionOpen(true);
       return;
     }
 
@@ -422,13 +419,11 @@ export const useGameController = () => {
             : "Unable to restore saved game.";
         if (message === "Game not found") {
           setGame(null);
-          setSideSelectionOpen(true);
           return;
         }
 
         setGame(null);
         setError(message);
-        setSideSelectionOpen(true);
       })
       .finally(() => {
         setIsRestoringGame(false);
@@ -1131,6 +1126,7 @@ export const useGameController = () => {
     analysisPendingKeys,
     sideSelectionOpen,
     openSideSelection: () => setSideSelectionOpen(true),
+    closeSideSelection: () => setSideSelectionOpen(false),
     confirmNewGameOpen,
     loadGame,
   };
