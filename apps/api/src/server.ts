@@ -251,6 +251,16 @@ export const buildServer = async () => {
       return;
     }
 
+    if (error.name === "ZodError" || (error as any).issues) {
+      reply.code(400).send({
+        statusCode: 400,
+        error: "Bad Request",
+        message: error.message,
+        issues: (error as any).issues,
+      });
+      return;
+    }
+
     if (error.statusCode === 429) {
       reply.code(429).send({
         statusCode: 429,

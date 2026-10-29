@@ -14,6 +14,7 @@ export const gamesTable = pgTable("games", {
   gameId: uuid("game_id").primaryKey(),
   playerColor: varchar("player_color", { length: 16 }).notNull(),
   difficulty: varchar("difficulty", { length: 16 }).notNull(),
+  style: varchar("style", { length: 32 }).default("solid"),
   status: varchar("status", { length: 32 }).notNull(),
   currentFen: text("current_fen").notNull(),
   result: varchar("result", { length: 16 }),

@@ -9,6 +9,7 @@
     "start": "node --max-old-space-size=256 dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
+    "selfplay": "tsx scripts/runSelfPlay.ts",
     "book:generate": "tsx scripts/generateBundledBook.ts",
     "db:generate": "drizzle-kit generate --config=drizzle.config.ts",
     "db:push": "drizzle-kit push --config=drizzle.config.ts",

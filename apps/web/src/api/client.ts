@@ -1,4 +1,5 @@
 import type {
+  CreateGameRequest,
   CreateGameResponse,
   Difficulty,
   MoveRequest,
@@ -7,6 +8,7 @@ import type {
   PlayerMoveRequest,
   PlayerMoveResponse,
   ResignResponse,
+  StyleId,
   UndoRequest,
   UndoResponse,
 } from "@chessverse/contracts";
@@ -59,7 +61,7 @@ const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
 };
 
 export const api = {
-  createGame: (payload: { playerColor: PlayerColor; difficulty: Difficulty }) =>
+  createGame: (payload: CreateGameRequest) =>
     request<CreateGameResponse>("/games", {
       method: "POST",
       body: JSON.stringify(payload),
@@ -82,6 +84,8 @@ export const api = {
     }),
   resign: (gameId: string) =>
     request<ResignResponse>(`/games/${gameId}/resign`, { method: "POST" }),
+  offerDraw: (gameId: string) =>
+    request<{ accepted: boolean; game: CreateGameResponse }>(`/games/${gameId}/draw-offer`, { method: "POST" }),
   engineMove: (payload: MoveRequest) =>
     request<MoveResponse>("/engine/move", {
       method: "POST",

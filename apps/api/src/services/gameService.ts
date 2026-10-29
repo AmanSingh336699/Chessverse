@@ -1,4 +1,14 @@
-import { defaultEngineState, type CreateGameRequest, type MoveHistoryEntry, type PlayerColor, type PlayerMoveRequest, type UndoRequest } from "@chessverse/contracts";
+import {
+  defaultEngineState,
+  STYLE_PROFILES,
+  type CreateGameRequest,
+  type Difficulty,
+  type MoveHistoryEntry,
+  type PlayerColor,
+  type PlayerMoveRequest,
+  type StyleId,
+  type UndoRequest,
+} from "@chessverse/contracts";
 import { Chess } from "chess.js";
 import { randomUUID } from "node:crypto";
 import type { GameRepository, StoredGame } from "../types.js";
@@ -52,15 +62,19 @@ export class GameService {
   async createGame(input: CreateGameRequest): Promise<StoredGame> {
     const now = new Date().toISOString();
     const gameId = randomUUID();
+    const playerColor: PlayerColor = input.playerColor ?? "white";
+    const difficulty: Difficulty = input.difficulty ?? "advanced";
+    const style: StyleId = input.style ?? "solid";
     const baseGame: StoredGame = {
       gameId,
-      playerColor: input.playerColor,
-      difficulty: input.difficulty,
+      playerColor,
+      difficulty,
+      style,
       fen: STARTING_FEN,
       status: "playing",
       moveHistory: [],
       evaluation: null,
-      engineState: defaultEngineState(),
+      engineState: defaultEngineState(style),
       result: null,
       totalMoves: 0,
       startTime: now,
@@ -69,7 +83,7 @@ export class GameService {
       updatedAt: now,
     };
 
-    const game = input.playerColor === "black"
+    const game = playerColor === "black"
       ? await this.playOpeningAiMove(baseGame)
       : baseGame;
 
@@ -187,7 +201,7 @@ export class GameService {
   private queueMoveAnalysisJob(params: {
     gameId: string;
     playerColor: PlayerColor;
-    difficulty: CreateGameRequest["difficulty"];
+    difficulty: Difficulty;
     playerMove: MoveHistoryEntry;
     aiMove: MoveHistoryEntry | null;
     playerEvalBeforeHint: number | null;
@@ -205,7 +219,7 @@ export class GameService {
   private async persistMoveAnalysis(params: {
     gameId: string;
     playerColor: PlayerColor;
-    difficulty: CreateGameRequest["difficulty"];
+    difficulty: Difficulty;
     playerMove: MoveHistoryEntry;
     aiMove: MoveHistoryEntry | null;
     playerEvalBeforeHint: number | null;
@@ -434,6 +448,7 @@ export class GameService {
         gameId: game.gameId,
         fen: game.fen,
         difficulty: game.difficulty,
+        style: game.style,
         moveNumber: getFullmoveNumberFromFen(game.fen),
         aiColor: oppositeColor(game.playerColor),
         engineState: game.engineState,
@@ -727,8 +742,28 @@ export class GameService {
 
   async offerDraw(gameId: string): Promise<{ accepted: boolean; game: StoredGame }> {
     const game = await this.getGame(gameId);
+    if (game.status !== "playing") {
+      throw new HttpError(400, "Cannot offer draw on finished game", { error: "Cannot offer draw on finished game" });
+    }
+
+    const profile = STYLE_PROFILES[game.style] ?? STYLE_PROFILES.solid;
+    const aiColor = oppositeColor(game.playerColor);
+    const baseEvalCp = game.evaluation !== null ? Math.round(game.evaluation * 100) : 0;
+    const aiEvalCp = aiColor === "white" ? baseEvalCp : -baseEvalCp;
+
+    const accepted = aiEvalCp <= profile.drawAcceptance.minEvalCp;
+
+    if (accepted) {
+      game.status = "draw";
+      game.result = "draw";
+      game.endTime = new Date().toISOString();
+      game.updatedAt = new Date().toISOString();
+      await this.repository.saveGame(game);
+      this.speculation?.cancelForGame(gameId);
+    }
+
     return {
-      accepted: false,
+      accepted,
       game,
     };
   }
@@ -738,6 +773,7 @@ export class GameService {
       gameId: game.gameId,
       fen: game.fen,
       difficulty: game.difficulty,
+      style: game.style,
       moveNumber: 1,
       aiColor: "white",
       engineState: game.engineState,

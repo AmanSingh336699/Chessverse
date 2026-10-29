@@ -846,6 +846,8 @@ const App = () => {
         onChoose={controller.chooseSide}
         difficulty={controller.difficulty}
         setDifficulty={controller.setDifficulty}
+        style={controller.style}
+        setStyle={controller.setStyle}
       />
 
       <ConfirmDialog

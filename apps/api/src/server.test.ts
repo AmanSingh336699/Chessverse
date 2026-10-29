@@ -64,6 +64,68 @@ describe("Server HTTP endpoints & Middleware (Phase 1)", () => {
     expect(res.headers["x-frame-options"]).toBe("SAMEORIGIN");
   });
 
+  it("POST /games with invalid style returns 400 Bad Request", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/games",
+      headers: { "content-type": "application/json" },
+      payload: JSON.stringify({
+        difficulty: "intermediate",
+        playerColor: "white",
+        style: "invalid-super-style",
+      }),
+    });
+
+    expect(res.statusCode).toBe(400);
+    const body = JSON.parse(res.body);
+    expect(body.error).toBe("Bad Request");
+  });
+
+  it("POST /games with valid style initializes game with selected style", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/games",
+      headers: { "content-type": "application/json" },
+      payload: JSON.stringify({
+        difficulty: "intermediate",
+        playerColor: "white",
+        style: "gambiteer",
+      }),
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.style).toBe("gambiteer");
+    expect(body.engineState.style).toBe("gambiteer");
+  });
+
+  it("POST /games/:id/draw-offer evaluates style draw acceptance", async () => {
+    // 1. Create a game with Solid style
+    const createRes = await app.inject({
+      method: "POST",
+      url: "/games",
+      headers: { "content-type": "application/json" },
+      payload: JSON.stringify({
+        difficulty: "intermediate",
+        playerColor: "white",
+        style: "solid",
+      }),
+    });
+    const game = JSON.parse(createRes.body);
+
+    // 2. Offer draw at starting position (0cp eval)
+    const drawRes = await app.inject({
+      method: "POST",
+      url: `/games/${game.gameId}/draw-offer`,
+    });
+
+    expect(drawRes.statusCode).toBe(200);
+    const drawBody = JSON.parse(drawRes.body);
+    // Solid style accepts equal eval (0cp)
+    expect(drawBody.accepted).toBe(true);
+    expect(drawBody.game.status).toBe("draw");
+  });
+
   it("Rate limit: returns 429 Too Many Requests when rate limit is exceeded", async () => {
     let got429 = false;
     for (let i = 0; i < 150; i++) {

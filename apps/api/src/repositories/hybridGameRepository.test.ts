@@ -12,6 +12,7 @@ function createMockStoredGame(gameId = "game-test-1"): StoredGame {
     gameId,
     playerColor: "white",
     difficulty: "intermediate",
+    style: "solid",
     fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
     status: "playing",
     moveHistory: [],

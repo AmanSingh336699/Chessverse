@@ -60,7 +60,9 @@ export const normalizeGambitState = (state?: LegacyGambitState | null): GambitSt
     status !== "offered" &&
     status !== "accepted" &&
     status !== "declined" &&
-    status !== "failed"
+    status !== "failed" &&
+    status !== "refuted" &&
+    status !== "abandoned"
   ) {
     return createIdleGambitState();
   }
@@ -68,11 +70,12 @@ export const normalizeGambitState = (state?: LegacyGambitState | null): GambitSt
   return withOptionalLine(
     {
       active,
-      status,
+      status: status as GambitState["status"],
       cooldown,
       attemptMoveNumber: state.attemptMoveNumber ?? null,
-      handoffMode: state.handoffMode ?? deriveHandoff(status),
-      refuted: Boolean(state.refuted ?? (status === "failed")),
+      handoffMode: state.handoffMode ?? deriveHandoff(status as GambitState["status"]),
+      refuted: Boolean(state.refuted ?? (status === "failed" || status === "refuted")),
+      refutedCount: state.refutedCount ?? 0,
     },
     line,
   );
@@ -87,6 +90,7 @@ export const createOfferedGambitState = (line?: string, attemptMoveNumber?: numb
       attemptMoveNumber: attemptMoveNumber ?? null,
       handoffMode: "none",
       refuted: false,
+      refutedCount: 0,
     },
     line,
   );
@@ -101,6 +105,7 @@ export const createAcceptedGambitState = (state?: GambitState): GambitState => {
       attemptMoveNumber: normalized.attemptMoveNumber ?? null,
       handoffMode: "exploitation",
       refuted: false,
+      refutedCount: 0,
     },
     normalized.line,
   );
@@ -116,9 +121,70 @@ export const createDeclinedGambitState = (state?: GambitState): GambitState => {
       attemptMoveNumber: normalized.attemptMoveNumber ?? null,
       handoffMode: "pressure",
       refuted: false,
+      refutedCount: 0,
     },
     normalized.line,
   );
+};
+
+export const createRefutedGambitState = (state?: GambitState): GambitState => {
+  const normalized = normalizeGambitState(state);
+  return withOptionalLine(
+    {
+      active: false,
+      status: "refuted",
+      cooldown: FAILED_COOLDOWN_PLIES,
+      attemptMoveNumber: normalized.attemptMoveNumber ?? null,
+      handoffMode: "recovery",
+      refuted: true,
+      refutedCount: 2,
+    },
+    normalized.line,
+  );
+};
+
+export const createAbandonedGambitState = (state?: GambitState): GambitState => {
+  const normalized = normalizeGambitState(state);
+  return withOptionalLine(
+    {
+      active: false,
+      status: "abandoned",
+      cooldown: 0,
+      attemptMoveNumber: normalized.attemptMoveNumber ?? null,
+      handoffMode: "clean",
+      refuted: false,
+      refutedCount: 0,
+    },
+    normalized.line,
+  );
+};
+
+export const checkGambitRefutation = (
+  state: GambitState,
+  evalCp: number,
+  budgetCp: number,
+): GambitState => {
+  const current = normalizeGambitState(state);
+  if (!current.active || current.status === "refuted" || current.status === "abandoned") {
+    return current;
+  }
+
+  // Eval below budget threshold? (e.g. eval is worse than -budgetCp)
+  if (evalCp < -Math.abs(budgetCp)) {
+    const nextCount = (current.refutedCount ?? 0) + 1;
+    if (nextCount >= 2) {
+      return createRefutedGambitState(current);
+    }
+    return {
+      ...current,
+      refutedCount: nextCount,
+    };
+  }
+
+  return {
+    ...current,
+    refutedCount: 0,
+  };
 };
 
 export const createFailedGambitState = (
@@ -134,6 +200,7 @@ export const createFailedGambitState = (
       attemptMoveNumber: normalized.attemptMoveNumber ?? null,
       handoffMode: "recovery",
       refuted: true,
+      refutedCount: 2,
     },
     normalized.line,
   );
@@ -141,7 +208,7 @@ export const createFailedGambitState = (
 
 export const decrementGambitCooldown = (state?: GambitState, plies = 1): GambitState => {
   const normalized = normalizeGambitState(state);
-  if (normalized.status !== "failed" || normalized.cooldown === 0) {
+  if ((normalized.status !== "failed" && normalized.status !== "refuted") || normalized.cooldown === 0) {
     return normalized;
   }
 
@@ -153,11 +220,12 @@ export const decrementGambitCooldown = (state?: GambitState, plies = 1): GambitS
   return withOptionalLine(
     {
       active: false,
-      status: "failed",
+      status: normalized.status,
       cooldown: nextCooldown,
       attemptMoveNumber: normalized.attemptMoveNumber ?? null,
       handoffMode: "recovery",
       refuted: true,
+      refutedCount: normalized.refutedCount ?? 2,
     },
     normalized.line,
   );

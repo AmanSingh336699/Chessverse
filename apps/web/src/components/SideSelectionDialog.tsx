@@ -1,13 +1,57 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import type { Difficulty, PlayerColor } from "@chessverse/contracts";
+import type { Difficulty, PlayerColor, StyleId } from "@chessverse/contracts";
 
 interface SideSelectionDialogProps {
   open: boolean;
   onChoose: (color: PlayerColor) => void;
   difficulty: Difficulty;
   setDifficulty: (difficulty: Difficulty) => void;
+  style?: StyleId;
+  setStyle?: (style: StyleId) => void;
 }
+
+const STYLES: Array<{
+  id: StyleId;
+  name: string;
+  badge: string;
+  icon: string;
+  description: string;
+  color: string;
+}> = [
+  {
+    id: "solid",
+    name: "Solid",
+    badge: "Positional",
+    icon: "🛡️",
+    description: "Classical grandmaster style. Prioritizes king safety, structure, and pure positional chess.",
+    color: "#56d0ff",
+  },
+  {
+    id: "aggressive",
+    name: "Aggressive",
+    badge: "Attacker",
+    icon: "⚔️",
+    description: "Relentless king attacks, pawn pushes, and active piece pressure.",
+    color: "#ff6b4a",
+  },
+  {
+    id: "gambiteer",
+    name: "Gambiteer",
+    badge: "Romantic",
+    icon: "🎲",
+    description: "Sacrifices material freely for dynamic initiative, rapid development, and open files.",
+    color: "#c084fc",
+  },
+  {
+    id: "tricky",
+    name: "Tricky",
+    badge: "Traps",
+    icon: "⚡",
+    description: "Lays cunning tactical traps, sharp complications, and tests your tactical vision.",
+    color: "#fbbf24",
+  },
+];
 
 const OPTIONS: Array<{
   color: PlayerColor;
@@ -37,6 +81,8 @@ export const SideSelectionDialog = ({
   onChoose,
   difficulty,
   setDifficulty,
+  style = "solid",
+  setStyle,
 }: SideSelectionDialogProps) => {
   const [randomizing, setRandomizing] = useState(false);
   const [randomPreview, setRandomPreview] = useState<PlayerColor | null>(null);
@@ -104,7 +150,7 @@ export const SideSelectionDialog = ({
           <div className="absolute inset-0 bg-[rgba(3,8,15,0.64)] backdrop-blur-[7px]" />
 
           <motion.div
-            className="relative z-1 w-full max-w-[720px] max-h-[92vh] overflow-y-auto rounded-[26px] sm:rounded-[34px] border border-brand-200/14 bg-[linear-gradient(180deg,rgba(10,20,33,0.96),rgba(8,16,28,0.98))] p-4 sm:p-7 md:p-8 shadow-[0_35px_120px_rgba(2,8,20,0.68),inset_0_1px_0_rgba(255,255,255,0.06)] [scrollbar-width:thin] [scrollbar-color:rgba(124,231,214,0.3)_transparent]"
+            className="relative z-1 w-full max-w-[760px] max-h-[92vh] overflow-y-auto rounded-[26px] sm:rounded-[34px] border border-brand-200/14 bg-[linear-gradient(180deg,rgba(10,20,33,0.96),rgba(8,16,28,0.98))] p-4 sm:p-7 md:p-8 shadow-[0_35px_120px_rgba(2,8,20,0.68),inset_0_1px_0_rgba(255,255,255,0.06)] [scrollbar-width:thin] [scrollbar-color:rgba(124,231,214,0.3)_transparent]"
             initial={{ opacity: 0, scale: 0.96, y: 18 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 10 }}
@@ -124,17 +170,68 @@ export const SideSelectionDialog = ({
                 id="side-selection-title"
                 className="font-display mt-2 sm:mt-3 text-2xl sm:text-3xl md:text-[2.7rem]"
               >
-                Choose Your Side
+                Choose Your Match
               </h2>
               <p
                 id="side-selection-copy"
                 className="mt-2 sm:mt-3 max-w-2xl text-xs sm:text-base leading-relaxed text-stone-300/88"
               >
-                Select which color you want to play as. The board is waiting
-                behind the curtain and will unlock the moment your choice lands.
+                Select your preferred opponent style, difficulty, and color to begin.
               </p>
 
-              <div className="mt-5 sm:mt-6 flex flex-col gap-2">
+              {/* Style Selection */}
+              <div className="mt-5 sm:mt-6 flex flex-col gap-2.5">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-400">
+                    Opponent Style
+                  </p>
+                  <span className="text-[10px] text-brand-200/80 font-mono">
+                    Data-driven AI personality
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {STYLES.map((st) => {
+                    const isSelected = style === st.id;
+                    return (
+                      <button
+                        key={st.id}
+                        type="button"
+                        onClick={() => setStyle?.(st.id)}
+                        className={`group relative flex flex-col items-start gap-1 rounded-2xl border p-2.5 sm:p-3 text-left transition-all touch-manipulation ${
+                          isSelected
+                            ? "border-brand-300/60 bg-brand-300/15 shadow-[0_0_18px_rgba(86,208,255,0.22)]"
+                            : "border-white/8 bg-white/4 hover:border-white/20 hover:bg-white/8"
+                        }`}
+                      >
+                        <div className="flex w-full items-center justify-between">
+                          <span className="text-lg">{st.icon}</span>
+                          <span
+                            className="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+                            style={{
+                              backgroundColor: `${st.color}22`,
+                              color: st.color,
+                            }}
+                          >
+                            {st.badge}
+                          </span>
+                        </div>
+                        <p
+                          className="mt-1 text-xs sm:text-sm font-semibold transition"
+                          style={{ color: isSelected ? "#ffffff" : st.color }}
+                        >
+                          {st.name}
+                        </p>
+                        <p className="line-clamp-2 text-[10px] leading-snug text-stone-300/70">
+                          {st.description}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Difficulty Selection */}
+              <div className="mt-4 sm:mt-5 flex flex-col gap-2">
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-400">
                   Select Difficulty
                 </p>

@@ -40,6 +40,13 @@ const PIECE_ICONS: Record<string, string> = {
   q: "♕",
 };
 
+const STYLE_BADGES: Record<string, { name: string; icon: string; color: string; badgeBg: string }> = {
+  solid: { name: "Solid", icon: "🛡️", color: "#56d0ff", badgeBg: "rgba(86,208,255,0.12)" },
+  aggressive: { name: "Aggressive", icon: "⚔️", color: "#ff6b4a", badgeBg: "rgba(255,107,74,0.12)" },
+  gambiteer: { name: "Gambiteer", icon: "🎲", color: "#c084fc", badgeBg: "rgba(192,132,252,0.12)" },
+  tricky: { name: "Tricky", icon: "⚡", color: "#fbbf24", badgeBg: "rgba(251,191,36,0.12)" },
+};
+
 const titleCase = (value: string): string =>
   value
     .split(/[-_\s]+/)
@@ -508,11 +515,25 @@ export const GameSidebar = ({
                       </div>
                   </div>
 
-                  {/* Engine Mode Card */}
-                  <div className="rounded-[28px] border border-white/6 bg-[#0A111B] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] flex flex-col gap-4">
-                      <h4 className="text-[10px] tracking-[0.2em] uppercase text-slate-400 font-bold">
-                          Primary Behavior
-                      </h4>
+                  {/* Style Engine & Telemetry Card */}
+                  <div className="rounded-[28px] border border-white/6 bg-[#0A111B] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] flex flex-col gap-3.5">
+                      <div className="flex items-center justify-between">
+                          <h4 className="text-[10px] tracking-[0.2em] uppercase text-slate-400 font-bold">
+                              Opponent Style
+                          </h4>
+                          <span
+                              className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider shadow-sm"
+                              style={{
+                                  borderColor: `${STYLE_BADGES[game?.style ?? game?.engineState.style ?? "solid"]?.color ?? "#56d0ff"}44`,
+                                  backgroundColor: STYLE_BADGES[game?.style ?? game?.engineState.style ?? "solid"]?.badgeBg ?? "rgba(86,208,255,0.12)",
+                                  color: STYLE_BADGES[game?.style ?? game?.engineState.style ?? "solid"]?.color ?? "#56d0ff",
+                              }}
+                          >
+                              <span>{STYLE_BADGES[game?.style ?? game?.engineState.style ?? "solid"]?.icon ?? "🛡️"}</span>
+                              <span>{STYLE_BADGES[game?.style ?? game?.engineState.style ?? "solid"]?.name ?? "Solid"}</span>
+                          </span>
+                      </div>
+
                       <div className="flex items-center gap-3">
                           <span
                               className={`inline-flex items-center w-8 h-8 justify-center rounded-xl bg-linear-to-br shadow-inner border border-white/10 ${
@@ -535,7 +556,6 @@ export const GameSidebar = ({
                                               : "from-slate-600 to-slate-800 shadow-slate-500/20"
                               }`}
                           >
-                              {/* SVG icon placeholder or text representation as emoji */}
                               {currentEngineMode.includes("Gambit")
                                   ? "⚔"
                                   : currentEngineMode.includes("Trap")
@@ -549,8 +569,13 @@ export const GameSidebar = ({
                                           : "⚙"}
                           </span>
                           <div className="flex flex-col">
-                              <span className="text-base text-white font-semibold font-display tracking-wide">
-                                  {currentEngineMode}
+                              <span className="text-base text-white font-semibold font-display tracking-wide flex items-center gap-2">
+                                  <span>{currentEngineMode}</span>
+                                  {game?.engineState.mode && (
+                                      <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded border border-brand-200/20 bg-brand-200/10 text-brand-200">
+                                          {game.engineState.mode}
+                                      </span>
+                                  )}
                               </span>
                               {game?.engineState.lastDecision.strategy && (
                                   <span className="text-[11px] text-brand-200/90 font-medium tracking-wide">
@@ -559,6 +584,27 @@ export const GameSidebar = ({
                               )}
                           </div>
                       </div>
+
+                      {/* Decision Telemetry Display */}
+                      {game?.engineState.telemetry && (
+                          <div className="rounded-xl border border-white/8 bg-white/3 p-3 flex flex-col gap-1.5">
+                              <div className="flex items-center justify-between text-[10px]">
+                                  <span className="font-mono text-slate-400">Move Telemetry</span>
+                                  <span className={`font-mono font-bold ${game.engineState.telemetry.cpCost === 0 ? "text-emerald-400" : "text-amber-400"}`}>
+                                      {game.engineState.telemetry.cpCost === 0 ? "Optimal (0 cp)" : `-${game.engineState.telemetry.cpCost} cp`}
+                                  </span>
+                              </div>
+                              <p className="text-xs text-stone-300 leading-relaxed">
+                                  {game.engineState.telemetry.reason}
+                              </p>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                  <span className="text-[9px] font-mono text-slate-500 uppercase">Module:</span>
+                                  <span className="rounded bg-brand-300/10 px-1.5 py-0.5 text-[9px] font-mono text-brand-200">
+                                      {game.engineState.telemetry.module}
+                                  </span>
+                              </div>
+                          </div>
+                      )}
 
                       {activeBehaviorRoles.length > 0 && (
                           <div className="flex flex-col gap-2 mt-1">

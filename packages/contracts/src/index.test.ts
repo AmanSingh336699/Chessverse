@@ -7,6 +7,9 @@ import {
   gameStatusSchema,
   moveRequestSchema,
   playerMoveRequestSchema,
+  styleIdSchema,
+  styleProfileSchema,
+  STYLE_PROFILES,
   undoRequestSchema,
 } from "./index.js";
 
@@ -117,15 +120,45 @@ describe("@chessverse/contracts", () => {
   });
 
   describe("defaultEngineState", () => {
-    it("returns standard idle state structure", () => {
-      const state = defaultEngineState();
+    it("returns standard idle state structure with style and mode", () => {
+      const state = defaultEngineState("aggressive");
       expect(state.behaviorSuccessScore).toBe(0);
       expect(state.currentRecoveryMode).toBe("none");
+      expect(state.style).toBe("aggressive");
+      expect(state.mode).toBe("opening");
       expect(state.gambit.active).toBe(false);
       expect(state.gambit.status).toBe("idle");
       expect(state.trapSequence.active).toBe(false);
       expect(state.sacrificeTracking.active).toBe(false);
       expect(state.complexityDial).toBe(5);
+    });
+  });
+
+  describe("styleProfileSchema & STYLE_PROFILES", () => {
+    it("every predefined profile passes schema validation", () => {
+      const styles = ["aggressive", "gambiteer", "tricky", "solid"] as const;
+      for (const id of styles) {
+        const profile = STYLE_PROFILES[id];
+        expect(profile).toBeDefined();
+        const parsed = styleProfileSchema.parse(profile);
+        expect(parsed.id).toBe(id);
+        expect(parsed.multiPv).toBeGreaterThanOrEqual(6);
+        expect(parsed.multiPv).toBeLessThanOrEqual(10);
+        expect(parsed.evalBudgetCp.opening).toBeGreaterThan(0);
+        expect(parsed.temperature).toBeGreaterThan(0);
+      }
+    });
+
+    it("parses style in createGameRequestSchema", () => {
+      const withDefault = createGameRequestSchema.parse({});
+      expect(withDefault.style).toBe("solid");
+
+      const explicit = createGameRequestSchema.parse({ style: "gambiteer" });
+      expect(explicit.style).toBe("gambiteer");
+    });
+
+    it("rejects invalid style", () => {
+      expect(() => styleIdSchema.parse("invalid-style")).toThrow();
     });
   });
 });

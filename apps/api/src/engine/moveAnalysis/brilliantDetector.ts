@@ -27,6 +27,16 @@ const EVAL_TOLERANCE = 0.3;
 export const detectBrilliant = (ctx: BrilliantContext): BrilliantResult => {
   const evidence: string[] = [];
 
+  /* ── Condition 0: Not already completely winning before the move ── */
+  if (ctx.engineBestEval >= 4.0 || ctx.playerEval >= 7.0) {
+    return {
+      brilliant: false,
+      evidence: [
+        "Position is already completely winning — material sacrifice is not required to win",
+      ],
+    };
+  }
+
   /* ── Condition 1: Material sacrifice ── */
   const sacrifice = materialOfferValue(ctx.fenBefore, ctx.moveUci, ctx.playerColor);
   if (sacrifice < 1) {

@@ -4,8 +4,12 @@ import type {
     Difficulty,
     EngineState,
     MoveHistoryEntry,
+    MoveTelemetry,
     PlayerColor,
+    StyleId,
+    StyleMode,
 } from "@chessverse/contracts";
+import { STYLE_PROFILES } from "@chessverse/contracts";
 import {
     chooseCandidate,
     getBehaviorScale,
@@ -15,12 +19,23 @@ import { detectGamePhase } from "./phaseDetector.js";
 import { updateEngineStateAfterDecision } from "./scoring.js";
 import { createChess, sanFromUci, uciToMoveShape } from "../utils/chess.js";
 import { BehaviorEngine } from "./behaviorEngine.js";
-import type { EngineDecision } from "../types.js";
+import type { EngineDecision, EvaluatedCandidate } from "../types.js";
 import type { AnalysisService } from "./analysisService.js";
 import type { WorkerPool } from "./workerPool.js";
 import type { StockfishWorker } from "./stockfishWorker.js";
 import type { Logger } from "pino";
-import { normalizeGambitState } from "./behavior/gambitState.js";
+import {
+    checkGambitRefutation,
+    normalizeGambitState,
+} from "./behavior/gambitState.js";
+import { findRepertoireMove } from "./style/repertoire.js";
+import {
+    applyBudgetFilter,
+    calculateCandidateStyleScore,
+    isMoveSafeFromBlunder,
+    resolveEngineMode,
+    softmaxSelect,
+} from "./style/stylePipeline.js";
 import type {
     OpeningBook,
     OpeningBookEntry,
@@ -116,11 +131,13 @@ export class EngineService {
         gameId: string;
         fen: string;
         difficulty: Difficulty;
+        style?: StyleId;
         moveNumber: number;
         aiColor: PlayerColor;
         engineState: EngineState;
         moveHistory: MoveHistoryEntry[];
         depthOverride?: number;
+        seed?: number;
     }): Promise<EngineDecision> {
         let attempt = 0;
         let lastError: unknown;
@@ -161,11 +178,13 @@ export class EngineService {
         gameId: string;
         fen: string;
         difficulty: Difficulty;
+        style?: StyleId;
         moveNumber: number;
         aiColor: PlayerColor;
         engineState: EngineState;
         moveHistory: MoveHistoryEntry[];
         depthOverride?: number;
+        seed?: number;
     }): Promise<EngineDecision> {
         const {
             gameId,
@@ -178,14 +197,87 @@ export class EngineService {
             depthOverride,
         } = params;
 
+        const style: StyleId = params.style ?? engineState.style ?? "solid";
+        const styleProfile = STYLE_PROFILES[style] ?? STYLE_PROFILES.solid;
+
         // createChess tolerates premove-tainted FENs (illegal ep squares)
         const chess = createChess(fen);
         const phase = detectGamePhase(moveNumber, chess);
+
+        // Stage 1: Style repertoire (curated gambits/lines per color)
+        if (phase === "opening") {
+            const uciHistory = moveHistory.map((m) => m.moveUci);
+            const repertoireMatch = findRepertoireMove(
+                styleProfile.repertoireId,
+                aiColor,
+                uciHistory,
+                0,
+            );
+
+            if (repertoireMatch) {
+                const shape = uciToMoveShape(repertoireMatch.move);
+                if (shape) {
+                    const testChess = createChess(fen);
+                    const applied = testChess.move(shape);
+                    if (applied) {
+                        let nextGambit = engineState.gambit;
+                        if (repertoireMatch.gambit.acceptedMove) {
+                            nextGambit = {
+                                active: true,
+                                status: "offered",
+                                line: repertoireMatch.gambit.name,
+                                cooldown: 0,
+                                refutedCount: 0,
+                                handoffMode: "none",
+                                refuted: false,
+                                attemptMoveNumber: moveNumber,
+                            };
+                        }
+                        const nextMode: StyleMode =
+                            nextGambit.status === "offered" ? "gambit" : "opening";
+                        const telemetry: MoveTelemetry = {
+                            style: styleProfile.id,
+                            module: "style-repertoire",
+                            cpCost: 0,
+                            reason: `Played repertoire line: ${repertoireMatch.gambit.name}`,
+                        };
+                        const nextState: EngineState = {
+                            ...engineState,
+                            style: styleProfile.id,
+                            mode: nextMode,
+                            telemetry,
+                            gambit: nextGambit,
+                            lastDecision: {
+                                dominantEngine: nextGambit.status === "offered" ? "gambit" : "stockfish",
+                                strategy: `repertoire:${repertoireMatch.gambit.id}`,
+                                move: repertoireMatch.move,
+                                moveNumber,
+                            },
+                        };
+
+                        return {
+                            move: repertoireMatch.move,
+                            moveNotation: applied.san,
+                            evaluation: 0,
+                            engineMode:
+                                nextGambit.status === "offered"
+                                    ? "gambit"
+                                    : "stockfish",
+                            thinkingTime: 10,
+                            candidateScores: [],
+                            engineState: nextState,
+                        };
+                    }
+                }
+            }
+        }
+
         const profile = getDifficultyProfile(difficulty);
         const baseDepth = depthOverride
             ? Math.max(6, Math.min(profile.depth, depthOverride))
             : profile.depth;
 
+        // Stage 2 & 3: Opening books (style / general)
         const openingBookEntries =
             phase === "opening" && this.openingBook
                 ? this.openingBook.getEntries(fen).slice(0, 3)
@@ -199,6 +291,7 @@ export class EngineService {
         );
 
         return this.pool.withWorker(gameId, async (worker) => {
+            // Stage 4: Stockfish MultiPV candidates
             const analysis =
                 await this.analysisService.getCandidatesWithMovetime(
                     worker,
@@ -207,11 +300,11 @@ export class EngineService {
                     profile.minDepth,
                 );
 
-            const stockfishCandidates = this.analysisService.keepTopCandidates(
+            const rawStockfishCandidates = this.analysisService.keepTopCandidates(
                 analysis.candidates,
             );
 
-            if (stockfishCandidates.length === 0) {
+            if (rawStockfishCandidates.length === 0) {
                 // Position is terminal or engine returned nothing — hard error, not retryable.
                 throw new HttpError(
                     422,
@@ -221,6 +314,11 @@ export class EngineService {
                     },
                 );
             }
+
+            const stockfishCandidates = rawStockfishCandidates.slice(
+                0,
+                styleProfile.multiPv,
+            );
 
             const candidates = await this.buildCandidatePool({
                 worker,
@@ -249,9 +347,6 @@ export class EngineService {
                     ),
             });
 
-            // This can happen when buildSharedBehaviorContext filters all candidates
-            // (e.g. all moves are illegal in the flipped-color analysis context).
-            // Fall back to raw Stockfish ordering rather than crashing.
             if (scored.length === 0) {
                 const stockfishWeight = computeStockfishWeight(
                     phase,
@@ -267,14 +362,69 @@ export class EngineService {
                 );
             }
 
-            // scored.length > 0 is guaranteed by the safety net above.
-            const selected = chooseCandidate(scored, difficulty, engineState);
+            // Stage 5: Drop candidates whose cpLoss exceeds style budget for the phase
+            const evalBudgetCp = styleProfile.evalBudgetCp[phase];
+            const budgetedCandidates = applyBudgetFilter(scored, evalBudgetCp);
+
+            // Stage 6: Calculate centipawn score: score = -cpLoss + capped style bonuses
+            const bestEval = scored[0]?.eval ?? 0;
+            const scoredWithStyle = budgetedCandidates.map((c) => {
+                const weights = styleProfile.bonusWeights;
+                const rawBonus =
+                    (c.breakdown.gambit * weights.gambit +
+                        c.breakdown.trap * weights.trap +
+                        c.breakdown.sacrifice * weights.sacrifice +
+                        c.breakdown.aggression * weights.aggression +
+                        c.breakdown.psychological * weights.psychological) /
+                    100;
+                const bonusCp = Math.min(200, Math.max(0, Math.round(rawBonus)));
+                return calculateCandidateStyleScore({
+                    candidate: c,
+                    bestEval,
+                    bonusCp,
+                });
+            });
+
+            // Stage 7: Seeded softmax pick
+            const picked = softmaxSelect(
+                scoredWithStyle,
+                styleProfile.temperature,
+                params.seed,
+            );
+
+            // Stage 8: Blunder guard (never allow mate-in-1 against us or hang queen)
+            const isSafe = isMoveSafeFromBlunder(fen, picked.move, aiColor);
+            const topCandidate = scoredWithStyle[0] ?? picked;
+            const selected = isSafe ? picked : topCandidate;
+
             const nextState = updateEngineStateAfterDecision(
                 engineState,
                 phase,
                 selected,
             );
-            nextState.gambit = normalizeGambitState(nextState.gambit);
+            nextState.gambit = checkGambitRefutation(
+                normalizeGambitState(nextState.gambit),
+                Math.round(selected.eval * 100),
+                evalBudgetCp,
+            );
+
+            const nextMode = resolveEngineMode({
+                phase,
+                evalCp: Math.round(selected.eval * 100),
+                profile: styleProfile,
+                isGambitActive: nextState.gambit.active,
+                hasAttackAdvantage: selected.eval > 1.0,
+            });
+            nextState.mode = nextMode;
+            nextState.style = styleProfile.id;
+            nextState.telemetry = {
+                style: styleProfile.id,
+                module: !isSafe ? "blunder-guard-override" : selected.engineMode,
+                cpCost: selected.cpLoss,
+                reason: !isSafe
+                    ? `Blunder guard overrode unsafe move with top engine move`
+                    : `Selected by ${styleProfile.name} profile`,
+            };
 
             const ranked = [...scored].sort(
                 (l, r) =>
@@ -318,6 +468,9 @@ export class EngineService {
                     openingBookEntryCount: openingBookEntries.length,
                     searchMovetime: adjustedMovetime,
                     baseDepth,
+                    style: styleProfile.id,
+                    mode: nextMode,
+                    telemetry: nextState.telemetry,
                 },
                 "Behavior pipeline selected move",
             );

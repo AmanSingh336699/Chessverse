@@ -9,6 +9,7 @@ import type {
   PlayerMoveRequest,
   PlayerMoveResponse,
   ResignResponse,
+  StyleId,
   UndoRequest,
 } from "@chessverse/contracts";
 import { Chess } from "chess.js";
@@ -36,7 +37,22 @@ const STORAGE_KEYS = {
   gameId: "chessverse:game-id",
   difficulty: "chessverse:difficulty",
   playerColor: "chessverse:player-color",
+  style: "chessverse:style",
 } as const;
+
+const readStoredStyle = (): StyleId => {
+  if (typeof window === "undefined") {
+    return "solid";
+  }
+
+  const stored = window.localStorage.getItem(STORAGE_KEYS.style);
+  return stored === "aggressive" ||
+    stored === "gambiteer" ||
+    stored === "tricky" ||
+    stored === "solid"
+    ? stored
+    : "solid";
+};
 
 const readStoredDifficulty = (): Difficulty => {
   if (typeof window === "undefined") {
@@ -121,6 +137,7 @@ const localStatusForFen = (fen: string): GameSnapshot["status"] => {
 
 export const useGameController = () => {
   const [difficulty, setDifficultyState] = useState<Difficulty>(readStoredDifficulty);
+  const [style, setStyle] = useState<StyleId>(readStoredStyle);
   const [selectedPlayerColor, setSelectedPlayerColor] = useState<PlayerColor>(
     readStoredPlayerColor,
   );
@@ -349,6 +366,14 @@ export const useGameController = () => {
 
     window.localStorage.setItem(STORAGE_KEYS.difficulty, difficulty);
   }, [difficulty]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(STORAGE_KEYS.style, style);
+  }, [style]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -636,6 +661,7 @@ export const useGameController = () => {
     createGameMutation.mutate({
       playerColor: selectedPlayerColor,
       difficulty,
+      style,
     });
   };
 
@@ -662,7 +688,7 @@ export const useGameController = () => {
     setError(null);
     setBehaviorLabel("stockfish");
     resetTransientState();
-    createGameMutation.mutate({ playerColor: nextColor, difficulty });
+    createGameMutation.mutate({ playerColor: nextColor, difficulty, style });
   };
 
   const previewMove = (sourceSquare: string, targetSquare: string, piece?: string) => {
@@ -1020,6 +1046,8 @@ export const useGameController = () => {
   return {
     difficulty,
     setDifficulty,
+    style,
+    setStyle,
     playerColor: selectedPlayerColor,
     setPlayerColor: handlePlayerColorChange,
     canChangePlayerColor,

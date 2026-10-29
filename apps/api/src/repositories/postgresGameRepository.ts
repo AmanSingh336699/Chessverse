@@ -31,6 +31,7 @@ export class PostgresGameRepository implements PersistentGameRepository {
       gameId: game.gameId,
       playerColor: game.playerColor as StoredGame["playerColor"],
       difficulty: game.difficulty as StoredGame["difficulty"],
+      style: (game.style ?? "solid") as StoredGame["style"],
       fen: game.currentFen,
       status: game.status as StoredGame["status"],
       evaluation: null,
@@ -63,6 +64,7 @@ export class PostgresGameRepository implements PersistentGameRepository {
           gameId: game.gameId,
           playerColor: game.playerColor,
           difficulty: game.difficulty,
+          style: game.style ?? "solid",
           status: game.status,
           currentFen: game.fen,
           result: game.result,
@@ -78,6 +80,7 @@ export class PostgresGameRepository implements PersistentGameRepository {
           set: {
             playerColor: game.playerColor,
             difficulty: game.difficulty,
+            style: game.style ?? "solid",
             status: game.status,
             currentFen: game.fen,
             result: game.result,

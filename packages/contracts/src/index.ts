@@ -8,6 +8,124 @@ export const difficultySchema = z.enum([
 ]);
 export type Difficulty = z.infer<typeof difficultySchema>;
 
+export const styleIdSchema = z.enum([
+  "aggressive",
+  "gambiteer",
+  "tricky",
+  "solid",
+]);
+export type StyleId = z.infer<typeof styleIdSchema>;
+
+export const styleModeSchema = z.enum([
+  "opening",
+  "gambit",
+  "attack",
+  "consolidate",
+  "convert",
+  "endgame",
+  "swindle",
+]);
+export type StyleMode = z.infer<typeof styleModeSchema>;
+
+export const styleProfileSchema = z.object({
+  id: styleIdSchema,
+  name: z.string(),
+  description: z.string(),
+  multiPv: z.number().int().min(6).max(10),
+  evalBudgetCp: z.object({
+    opening: z.number().int().nonnegative(),
+    middlegame: z.number().int().nonnegative(),
+    endgame: z.number().int().nonnegative(),
+  }),
+  bonusWeights: z.object({
+    gambit: z.number().nonnegative(),
+    trap: z.number().nonnegative(),
+    sacrifice: z.number().nonnegative(),
+    aggression: z.number().nonnegative(),
+    psychological: z.number().nonnegative(),
+  }),
+  repertoireId: z.string().min(1),
+  temperature: z.number().positive(),
+  convertThresholdCp: z.number().int(),
+  swindleThresholdCp: z.number().int(),
+  drawAcceptance: z.object({
+    minEvalCp: z.number().int(),
+    allowContempt: z.boolean(),
+  }),
+});
+export type StyleProfile = z.infer<typeof styleProfileSchema>;
+
+export const AGGRESSIVE_PROFILE: StyleProfile = {
+  id: "aggressive",
+  name: "Aggressive",
+  description: "Relentless attacker that pushes pawns toward your king, hunts open files, and values piece activity over safety.",
+  multiPv: 8,
+  evalBudgetCp: { opening: 60, middlegame: 80, endgame: 40 },
+  bonusWeights: { gambit: 30, trap: 40, sacrifice: 80, aggression: 100, psychological: 50 },
+  repertoireId: "aggressive-repertoire",
+  temperature: 0.7,
+  convertThresholdCp: 300,
+  swindleThresholdCp: -150,
+  drawAcceptance: { minEvalCp: -150, allowContempt: true },
+};
+
+export const GAMBITEER_PROFILE: StyleProfile = {
+  id: "gambiteer",
+  name: "Gambiteer",
+  description: "Loves offering pawns and material in the opening for rapid development and chaotic initiative.",
+  multiPv: 8,
+  evalBudgetCp: { opening: 100, middlegame: 70, endgame: 30 },
+  bonusWeights: { gambit: 120, trap: 60, sacrifice: 70, aggression: 60, psychological: 40 },
+  repertoireId: "gambiteer-repertoire",
+  temperature: 0.8,
+  convertThresholdCp: 300,
+  swindleThresholdCp: -150,
+  drawAcceptance: { minEvalCp: -200, allowContempt: true },
+};
+
+export const TRICKY_PROFILE: StyleProfile = {
+  id: "tricky",
+  name: "Tricky",
+  description: "Crafty tactical specialist that lays deep traps, creates sharp imbalances, and tests your tactical vision.",
+  multiPv: 8,
+  evalBudgetCp: { opening: 70, middlegame: 80, endgame: 40 },
+  bonusWeights: { gambit: 50, trap: 120, sacrifice: 50, aggression: 50, psychological: 100 },
+  repertoireId: "tricky-repertoire",
+  temperature: 0.85,
+  convertThresholdCp: 300,
+  swindleThresholdCp: -150,
+  drawAcceptance: { minEvalCp: -100, allowContempt: true },
+};
+
+export const SOLID_PROFILE: StyleProfile = {
+  id: "solid",
+  name: "Solid",
+  description: "Classical, principled grandmaster style. Prioritizes king safety, structure, and pure Stockfish accuracy.",
+  multiPv: 6,
+  evalBudgetCp: { opening: 25, middlegame: 35, endgame: 20 },
+  bonusWeights: { gambit: 0, trap: 10, sacrifice: 10, aggression: 20, psychological: 10 },
+  repertoireId: "solid-repertoire",
+  temperature: 0.3,
+  convertThresholdCp: 300,
+  swindleThresholdCp: -150,
+  drawAcceptance: { minEvalCp: 0, allowContempt: false },
+};
+
+export const STYLE_PROFILES: Record<StyleId, StyleProfile> = {
+  aggressive: AGGRESSIVE_PROFILE,
+  gambiteer: GAMBITEER_PROFILE,
+  tricky: TRICKY_PROFILE,
+  solid: SOLID_PROFILE,
+};
+
+export const moveTelemetrySchema = z.object({
+  style: styleIdSchema,
+  module: z.string(),
+  cpCost: z.number(),
+  reason: z.string(),
+});
+export type MoveTelemetry = z.infer<typeof moveTelemetrySchema>;
+
 export const engineModeSchema = z.enum([
   "gambit",
   "trap",
@@ -112,11 +230,20 @@ export type LastDecisionRecord = z.infer<typeof lastDecisionRecordSchema>;
 export const gambitStateSchema = z.object({
   active: z.boolean(),
   line: z.string().min(1).optional(),
-  status: z.enum(["idle", "offered", "accepted", "declined", "failed"]),
+  status: z.enum([
+    "idle",
+    "offered",
+    "accepted",
+    "declined",
+    "refuted",
+    "abandoned",
+    "failed",
+  ]),
   cooldown: z.number().int().nonnegative(),
   attemptMoveNumber: z.number().int().nonnegative().nullable().optional(),
   handoffMode: z.enum(["none", "exploitation", "pressure", "recovery", "clean"]).optional(),
   refuted: z.boolean().optional(),
+  refutedCount: z.number().int().nonnegative().optional(),
 });
 export type GambitState = z.infer<typeof gambitStateSchema>;
 
@@ -145,6 +272,9 @@ export const engineStateSchema = z.object({
   sacrificeCooldownMoves: z.number().int().nonnegative(),
   recentEvaluations: z.array(z.number()),
   currentRecoveryMode: engineRecoveryModeSchema,
+  style: styleIdSchema.default("solid"),
+  mode: styleModeSchema.default("opening"),
+  telemetry: moveTelemetrySchema.optional(),
   gambit: gambitStateSchema,
   activeThemes: z.array(tacticalThemeSchema),
   trapSequence: trapSequenceStateSchema,
@@ -161,8 +291,9 @@ export type EngineState = z.infer<typeof engineStateSchema>;
 export const createGameRequestSchema = z.object({
   playerColor: playerColorSchema.default("white"),
   difficulty: difficultySchema.default("advanced"),
+  style: styleIdSchema.default("solid"),
 });
-export type CreateGameRequest = z.infer<typeof createGameRequestSchema>;
+export type CreateGameRequest = z.input<typeof createGameRequestSchema>;
 
 export const moveRequestSchema = z.object({
   fen: z.string().min(1),
@@ -267,6 +398,7 @@ export const gameSnapshotSchema = z.object({
   gameId: z.string().uuid(),
   playerColor: playerColorSchema,
   difficulty: difficultySchema,
+  style: styleIdSchema,
   fen: z.string(),
   status: gameStatusSchema,
   moveHistory: z.array(moveHistoryEntrySchema),
@@ -315,13 +447,15 @@ export const candidateMoveSchema = z.object({
 });
 export type CandidateMove = z.infer<typeof candidateMoveSchema>;
 
-export const defaultEngineState = (): EngineState => ({
+export const defaultEngineState = (style: StyleId = "solid"): EngineState => ({
   behaviorSuccessScore: 0,
   fallbackMovesRemaining: 0,
   pureStockfishMovesRemaining: 0,
   sacrificeCooldownMoves: 0,
   recentEvaluations: [],
   currentRecoveryMode: "none",
+  style,
+  mode: "opening",
   gambit: {
     active: false,
     status: "idle",
@@ -329,6 +463,7 @@ export const defaultEngineState = (): EngineState => ({
     handoffMode: "none",
     refuted: false,
     attemptMoveNumber: null,
+    refutedCount: 0,
   },
   activeThemes: [],
   trapSequence: {
