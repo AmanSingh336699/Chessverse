@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { Difficulty, PlayerColor, StyleId } from "@chessverse/contracts";
+import {
+  ShieldIcon,
+  SwordsIcon,
+  DicesIcon,
+  ZapIcon,
+  KingPieceIcon,
+} from "./icons";
 
 interface SideSelectionDialogProps {
   open: boolean;
@@ -16,7 +23,7 @@ const STYLES: Array<{
   id: StyleId;
   name: string;
   badge: string;
-  icon: string;
+  Icon: typeof ShieldIcon;
   description: string;
   color: string;
 }> = [
@@ -24,7 +31,7 @@ const STYLES: Array<{
     id: "solid",
     name: "Solid",
     badge: "Positional",
-    icon: "🛡️",
+    Icon: ShieldIcon,
     description: "Classical grandmaster style. Prioritizes king safety, structure, and pure positional chess.",
     color: "#56d0ff",
   },
@@ -32,7 +39,7 @@ const STYLES: Array<{
     id: "aggressive",
     name: "Aggressive",
     badge: "Attacker",
-    icon: "⚔️",
+    Icon: SwordsIcon,
     description: "Relentless king attacks, pawn pushes, and active piece pressure.",
     color: "#ff6b4a",
   },
@@ -40,7 +47,7 @@ const STYLES: Array<{
     id: "gambiteer",
     name: "Gambiteer",
     badge: "Romantic",
-    icon: "🎲",
+    Icon: DicesIcon,
     description: "Sacrifices material freely for dynamic initiative, rapid development, and open files.",
     color: "#c084fc",
   },
@@ -48,7 +55,7 @@ const STYLES: Array<{
     id: "tricky",
     name: "Tricky",
     badge: "Traps",
-    icon: "⚡",
+    Icon: ZapIcon,
     description: "Lays cunning tactical traps, sharp complications, and tests your tactical vision.",
     color: "#fbbf24",
   },
@@ -58,22 +65,19 @@ const OPTIONS: Array<{
   color: PlayerColor;
   label: string;
   description: string;
-  glyph: string;
   accent: string;
 }> = [
   {
     color: "white",
     label: "White",
-    description: "You open first and control the initiative.",
-    glyph: "\u2654",
-    accent: "rgba(247,240,223,0.92)",
+    description: "You open first and dictate the dynamic initiative.",
+    accent: "rgba(247,240,223,0.95)",
   },
   {
     color: "black",
     label: "Black",
-    description: "The AI opens immediately. You counter from the dark side.",
-    glyph: "\u265A",
-    accent: "rgba(86,208,255,0.92)",
+    description: "The AI opens immediately. Counter with sharp defenses.",
+    accent: "rgba(86,208,255,0.95)",
   },
 ];
 
@@ -102,7 +106,6 @@ export const SideSelectionDialog = ({
         window.clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
-
       if (timeoutRef.current !== null) {
         window.clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
@@ -134,216 +137,180 @@ export const SideSelectionDialog = ({
       setRandomPreview(finalColor);
 
       window.setTimeout(() => {
+        setRandomizing(false);
         onChoose(finalColor);
-      }, 180);
-    }, 620);
+      }, 160);
+    }, 700);
   };
 
   return (
     <AnimatePresence>
       {open ? (
-        <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6 sm:px-6"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.22 }}
-        >
-          <div
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-[#020913]/85 backdrop-blur-md"
             onClick={onClose}
-            className="absolute inset-0 bg-[rgba(3,8,15,0.64)] backdrop-blur-[7px] cursor-pointer"
           />
 
           <motion.div
-            className="relative z-1 w-full max-w-[760px] max-h-[92vh] overflow-y-auto rounded-[26px] sm:rounded-[34px] border border-brand-200/14 bg-[linear-gradient(180deg,rgba(10,20,33,0.96),rgba(8,16,28,0.98))] p-4 sm:p-7 md:p-8 shadow-[0_35px_120px_rgba(2,8,20,0.68),inset_0_1px_0_rgba(255,255,255,0.06)] [scrollbar-width:thin] [scrollbar-color:rgba(124,231,214,0.3)_transparent]"
-            initial={{ opacity: 0, scale: 0.96, y: 18 }}
+            initial={{ opacity: 0, scale: 0.94, y: 16 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 10 }}
-            transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="side-selection-title"
-            aria-describedby="side-selection-copy"
+            exit={{ opacity: 0, scale: 0.94, y: 16 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="relative z-10 w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-3xl border border-white/10 bg-[linear-gradient(145deg,rgba(13,24,38,0.96)_0%,rgba(7,18,31,0.98)_100%)] p-5 sm:p-7 shadow-[0_24px_80px_rgba(0,0,0,0.7)] backdrop-blur-2xl"
           >
-            {onClose ? (
-              <button
-                type="button"
-                onClick={onClose}
-                className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10 rounded-full p-2 text-stone-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                aria-label="Close match selection"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            ) : null}
-
-            <div className="pointer-events-none absolute inset-0 rounded-[34px] bg-[radial-gradient(circle_at_top,rgba(86,208,255,0.08),transparent_34%),radial-gradient(circle_at_bottom_left,rgba(124,231,214,0.08),transparent_30%)]" />
-
-            <div className="relative z-1">
-              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-gradient-gold">
-                Match Launch
-              </p>
-              <h2
-                id="side-selection-title"
-                className="font-display mt-2 sm:mt-3 text-2xl sm:text-3xl md:text-[2.7rem]"
-              >
-                Choose Your Match
-              </h2>
-              <p
-                id="side-selection-copy"
-                className="mt-2 sm:mt-3 max-w-2xl text-xs sm:text-base leading-relaxed text-stone-300/88"
-              >
-                Select your preferred opponent style, difficulty, and color to begin.
-              </p>
-
-              {/* Style Selection */}
-              <div className="mt-5 sm:mt-6 flex flex-col gap-2.5">
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-400">
-                    Opponent Style
-                  </p>
-                  <span className="text-[10px] text-brand-200/80 font-mono">
-                    Data-driven AI personality
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {STYLES.map((st) => {
-                    const isSelected = style === st.id;
-                    return (
-                      <button
-                        key={st.id}
-                        type="button"
-                        onClick={() => setStyle?.(st.id)}
-                        className={`group relative flex flex-col items-start gap-1 rounded-2xl border p-2.5 sm:p-3 text-left transition-all touch-manipulation ${
-                          isSelected
-                            ? "border-brand-300/60 bg-brand-300/15 shadow-[0_0_18px_rgba(86,208,255,0.22)]"
-                            : "border-white/8 bg-white/4 hover:border-white/20 hover:bg-white/8"
-                        }`}
-                      >
-                        <div className="flex w-full items-center justify-between">
-                          <span className="text-lg">{st.icon}</span>
-                          <span
-                            className="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
-                            style={{
-                              backgroundColor: `${st.color}22`,
-                              color: st.color,
-                            }}
-                          >
-                            {st.badge}
-                          </span>
-                        </div>
-                        <p
-                          className="mt-1 text-xs sm:text-sm font-semibold transition"
-                          style={{ color: isSelected ? "#ffffff" : st.color }}
-                        >
-                          {st.name}
-                        </p>
-                        <p className="line-clamp-2 text-[10px] leading-snug text-stone-300/70">
-                          {st.description}
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
+            <div className="flex items-center justify-between border-b border-white/8 pb-3.5 sm:pb-4">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-gradient-gold">
+                  Tactical Staging
+                </span>
+                <h2 className="font-display text-xl sm:text-2xl font-bold text-brand-100">
+                  Select Game Parameters
+                </h2>
               </div>
+              {onClose ? (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-full border border-white/10 bg-white/5 p-2 text-stone-400 hover:text-white transition touch-manipulation"
+                  title="Close Dialog"
+                >
+                  ✕
+                </button>
+              ) : null}
+            </div>
 
-              {/* Difficulty Selection */}
-              <div className="mt-4 sm:mt-5 flex flex-col gap-2">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-400">
-                  Select Difficulty
-                </p>
-                <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                  {(
-                    [
-                      { value: "beginner", label: "Beginner" },
-                      { value: "intermediate", label: "Intermediate" },
-                      { value: "advanced", label: "Advanced" },
-                      { value: "master", label: "Master" },
-                    ] as const
-                  ).map((opt) => (
+            {/* AI Style Selection */}
+            <div className="mt-4 sm:mt-5">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-stone-300">
+                Opponent AI Personality
+              </label>
+              <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
+                {STYLES.map((st) => {
+                  const isSelected = style === st.id;
+                  const Icon = st.Icon;
+                  return (
                     <button
-                      key={opt.value}
+                      key={st.id}
                       type="button"
-                      onClick={() => setDifficulty(opt.value)}
-                      className={`rounded-full border px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium transition touch-manipulation ${
-                        difficulty === opt.value
-                          ? "border-brand-300/50 bg-brand-300/20 text-brand-100 shadow-[0_0_12px_rgba(86,208,255,0.2)]"
-                          : "border-white/10 bg-white/5 text-stone-300 hover:border-brand-300/30 hover:bg-brand-300/10 hover:text-brand-100"
+                      onClick={() => setStyle?.(st.id)}
+                      className={`group relative flex flex-col items-start gap-1 rounded-2xl border p-2.5 sm:p-3 text-left transition-all touch-manipulation ${
+                        isSelected
+                          ? "border-cyan-400/60 bg-cyan-500/15 shadow-[0_0_18px_rgba(6,182,212,0.22)]"
+                          : "border-white/8 bg-white/4 hover:border-white/20 hover:bg-white/8"
                       }`}
                     >
-                      {opt.label}
+                      <div className="flex w-full items-center justify-between">
+                        <Icon size={18} style={{ color: st.color }} />
+                        <span
+                          className="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+                          style={{
+                            backgroundColor: `${st.color}22`,
+                            color: st.color,
+                          }}
+                        >
+                          {st.badge}
+                        </span>
+                      </div>
+                      <p
+                        className="mt-1 text-xs sm:text-sm font-semibold transition"
+                        style={{ color: isSelected ? "#ffffff" : st.color }}
+                      >
+                        {st.name}
+                      </p>
+                      <p className="text-[10px] text-stone-400 line-clamp-2 leading-tight">
+                        {st.description}
+                      </p>
                     </button>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
+            </div>
 
-              <div className="mt-6 sm:mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {/* AI Difficulty Selector */}
+            <div className="mt-4 sm:mt-5">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-stone-300">
+                Stockfish Engine Depth
+              </label>
+              <div className="mt-2 grid grid-cols-4 gap-1.5 sm:gap-2">
+                {[
+                  { id: "beginner" as const, label: "Beginner", depth: "D4" },
+                  { id: "intermediate" as const, label: "Medium", depth: "D8" },
+                  { id: "advanced" as const, label: "Hard", depth: "D10" },
+                  { id: "master" as const, label: "Master", depth: "D18" },
+                ].map((diff) => (
+                  <button
+                    key={diff.id}
+                    type="button"
+                    onClick={() => setDifficulty(diff.id)}
+                    className={`rounded-xl border px-2 py-2 text-center text-xs font-semibold transition touch-manipulation ${
+                      difficulty === diff.id
+                        ? "border-amber-400/50 bg-amber-400/15 text-amber-200 shadow-[0_0_12px_rgba(251,191,36,0.2)]"
+                        : "border-white/10 bg-white/5 text-stone-300 hover:bg-white/10"
+                    }`}
+                  >
+                    <div>{diff.label}</div>
+                    <div className="text-[9px] opacity-70 font-mono mt-0.5">{diff.depth}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Choose Your Side */}
+            <div className="mt-5 sm:mt-6">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-stone-300">
+                Choose Command Side
+              </label>
+              <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {OPTIONS.map((option) => {
-                  const highlighted =
+                  const isHighlighted =
                     randomPreview === option.color && randomizing;
 
                   return (
                     <motion.button
                       key={option.color}
                       type="button"
-                      className="group relative overflow-hidden rounded-[22px] sm:rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] p-4 sm:px-5 sm:py-6 text-left shadow-[0_18px_55px_rgba(2,8,20,0.35)] transition touch-manipulation"
+                      whileHover={{ scale: 1.015 }}
+                      whileTap={{ scale: 0.98 }}
                       onClick={() => onChoose(option.color)}
-                      whileHover={{
-                        y: -2,
-                        boxShadow: `0 28px 70px rgba(2,8,20,0.48), 0 0 0 1px ${option.accent}33`,
-                      }}
-                      whileTap={{ scale: 0.97 }}
-                      style={{
-                        borderColor: highlighted
-                          ? option.accent
-                          : "rgba(255,255,255,0.08)",
-                        boxShadow: highlighted
-                          ? `0 0 0 1px ${option.accent}66, 0 0 42px ${option.accent}22`
-                          : undefined,
-                      }}
+                      className={`group relative flex flex-col items-center justify-center rounded-2xl border p-4 sm:p-5 text-center transition touch-manipulation ${
+                        isHighlighted
+                          ? "border-cyan-300 bg-cyan-400/20 shadow-[0_0_24px_rgba(6,182,212,0.35)]"
+                          : "border-white/10 bg-white/5 hover:border-cyan-400/40 hover:bg-white/8"
+                      }`}
                     >
-                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.06),transparent_42%)] opacity-70" />
-                      <div className="relative z-1">
-                        <div
-                          className="inline-flex h-14 w-14 sm:h-18 sm:w-18 items-center justify-center rounded-[18px] sm:rounded-3xl border border-white/10 bg-white/6 text-4xl sm:text-[3.6rem] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-                          style={{ color: option.accent }}
-                        >
-                          {option.glyph}
-                        </div>
-                        <p className="mt-3.5 sm:mt-5 text-lg sm:text-xl font-semibold text-brand-100">
-                          {option.label}
-                        </p>
-                        <p className="mt-1 sm:mt-2 text-xs sm:text-sm leading-5 sm:leading-6 text-stone-300/82">
-                          {option.description}
-                        </p>
+                      <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/5 shadow-inner">
+                        <KingPieceIcon size={32} fill={option.color} />
                       </div>
+                      <p className="mt-3 text-base sm:text-lg font-bold text-brand-100">
+                        {option.label}
+                      </p>
+                      <p className="mt-1 text-xs text-stone-400 leading-snug">
+                        {option.description}
+                      </p>
                     </motion.button>
                   );
                 })}
               </div>
 
-              <div className="mt-4 flex justify-center">
-                <motion.button
+              {/* Random Choice */}
+              <div className="mt-3.5 flex justify-center">
+                <button
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-stone-200 transition hover:border-brand-200/35 hover:bg-brand-200/10 hover:text-brand-100"
                   onClick={handleRandom}
-                  whileTap={{ scale: 0.97 }}
                   disabled={randomizing}
+                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-stone-300 hover:border-cyan-400/40 hover:bg-white/10 hover:text-white transition touch-manipulation"
                 >
-                  <span className="text-brand-200">
-                    {randomPreview === "black"
-                      ? "\u265A"
-                      : randomPreview === "white"
-                        ? "\u2654"
-                        : "\u25C7"}
-                  </span>
-                  {randomizing ? "Flipping a coin..." : "Random Side"}
-                </motion.button>
+                  <DicesIcon size={14} className={randomizing ? "animate-spin text-cyan-300" : "text-amber-400"} />
+                  <span>{randomizing ? "Flipping coin..." : "Random Side (Coin Flip)"}</span>
+                </button>
               </div>
             </div>
           </motion.div>
-        </motion.div>
+        </div>
       ) : null}
     </AnimatePresence>
   );

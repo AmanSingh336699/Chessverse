@@ -440,6 +440,17 @@ export const drawOfferResponseSchema = z.object({
 });
 export type DrawOfferResponse = z.infer<typeof drawOfferResponseSchema>;
 
+export const hintResponseSchema = z.object({
+  gameId: z.string(),
+  from: z.string(),
+  to: z.string(),
+  moveUci: z.string(),
+  san: z.string(),
+  eval: z.number().nullable().optional(),
+  explanation: z.string(),
+});
+export type HintResponse = z.infer<typeof hintResponseSchema>;
+
 export const candidateMoveSchema = z.object({
   move: z.string(),
   eval: z.number(),

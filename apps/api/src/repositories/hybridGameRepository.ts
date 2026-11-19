@@ -247,6 +247,9 @@ export class HybridGameRepository implements GameRepository {
     }
 
     try {
+      if (this.persistent.initializeSchema) {
+        await this.persistent.initializeSchema();
+      }
       const healthy = await this.persistent.isHealthy();
       if (healthy) {
         this.logger.info("Persistent database storage verified and healthy on startup");

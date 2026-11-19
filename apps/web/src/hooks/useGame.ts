@@ -4,6 +4,7 @@ import type {
   CreateGameResponse,
   Difficulty,
   GameSnapshot,
+  HintResponse,
   MoveHistoryEntry,
   PlayerColor,
   PlayerMoveRequest,
@@ -14,6 +15,7 @@ import type {
 } from "@chessverse/contracts";
 import { Chess } from "chess.js";
 import { api } from "../api/client";
+import { soundEngine } from "../lib/sound";
 import {
   boardFen,
   currentCheckSquare,
@@ -29,14 +31,14 @@ import {
   type PromotionPiece,
 } from "../lib/chess";
 
-const MIN_THINKING_DELAY_MS = 500;
-const AI_MOVE_ANIMATION_MS = 320;
-const PREMOVE_TRIGGER_DELAY_MS = 50;
-const PREMOVE_ANIMATION_MS = 180;
+const MIN_THINKING_DELAY_MS = 320;
+const AI_MOVE_ANIMATION_MS = 220;
+const PREMOVE_TRIGGER_DELAY_MS = 40;
+const PREMOVE_ANIMATION_MS = 160;
 const UNDO_STEP_MS = 150;
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const ANALYSIS_POLL_DELAY_MS = 1200;
-const ANALYSIS_POLL_MAX_ATTEMPTS = 6;
+const ANALYSIS_POLL_MAX_ATTEMPTS = 30;
 const STORAGE_KEYS = {
   gameId: "chessverse:game-id",
   difficulty: "chessverse:difficulty",
@@ -146,6 +148,9 @@ export const useGameController = () => {
   const [premoveSquares, setPremoveSquares] = useState<[string, string] | null>(null);
   const [premoveStatusText, setPremoveStatusText] = useState<string | null>(null);
   const [premoveNotice, setPremoveNotice] = useState<string | null>(null);
+  const [hint, setHint] = useState<HintResponse | null>(null);
+  const [isHintLoading, setIsHintLoading] = useState(false);
+  const [hintError, setHintError] = useState<string | null>(null);
   const premoveNoticeTimerRef = useRef<number | null>(null);
   const capturedSquareRef = useRef<string | null>(null);
   const bootstrappedRef = useRef(false);
@@ -194,6 +199,9 @@ export const useGameController = () => {
     capturedSquareRef.current = null;
     clearPremove();
     setPremoveNotice(null);
+    setHint(null);
+    setIsHintLoading(false);
+    setHintError(null);
     if (premoveNoticeTimerRef.current !== null) {
       window.clearTimeout(premoveNoticeTimerRef.current);
       premoveNoticeTimerRef.current = null;
@@ -290,6 +298,7 @@ export const useGameController = () => {
     },
     onSuccess: (response: CreateGameResponse) => {
       startTransition(() => {
+        soundEngine.playGameStart();
         syncGameSnapshot(response);
       });
     },
@@ -405,8 +414,15 @@ export const useGameController = () => {
     void api.getGame(storedGameId)
       .then((response) => {
         startTransition(() => {
+          soundEngine.playGameStart();
           syncGameSnapshot(response);
         });
+        const unanalyzed = response.moveHistory
+          .filter((entry) => !entry.analysis)
+          .map(moveKey);
+        if (unanalyzed.length > 0) {
+          scheduleAnalysisRefresh(response.gameId, unanalyzed);
+        }
       })
       .catch((restoreError) => {
         if (typeof window !== "undefined") {
@@ -435,10 +451,17 @@ export const useGameController = () => {
     try {
       const response = await api.getGame(gameId);
       startTransition(() => {
+        soundEngine.playGameStart();
         syncGameSnapshot(response);
       });
       if (typeof window !== "undefined") {
         window.localStorage.setItem(STORAGE_KEYS.gameId, gameId);
+      }
+      const unanalyzed = response.moveHistory
+        .filter((entry) => !entry.analysis)
+        .map(moveKey);
+      if (unanalyzed.length > 0) {
+        scheduleAnalysisRefresh(response.gameId, unanalyzed);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load game");
@@ -530,6 +553,7 @@ export const useGameController = () => {
     targetSquare: string,
     promotion?: PromotionPiece,
   ) => {
+    soundEngine.playPremove();
     premoveRef.current = {
       from: sourceSquare,
       to: targetSquare,
@@ -543,6 +567,29 @@ export const useGameController = () => {
   };
 
   const applyMoveResponse = (response: PlayerMoveResponse) => {
+    if (response.aiMove) {
+      const san = response.aiMove.moveNotation;
+      if (response.game.status === 'checkmate') {
+        soundEngine.playCheck();
+        soundEngine.playGameEnd('loss');
+      } else if (response.game.status === 'stalemate' || response.game.status === 'draw') {
+        soundEngine.playGameEnd('draw');
+      } else if (san.includes('+')) {
+        soundEngine.playCheck();
+      } else if (san.startsWith('O-O')) {
+        soundEngine.playCastle();
+      } else if (san.includes('=')) {
+        soundEngine.playPromote();
+      } else if (san.includes('x')) {
+        soundEngine.playCapture();
+      } else {
+        soundEngine.playMove();
+      }
+    } else if (response.game.status === 'checkmate') {
+      soundEngine.playGameEnd('win');
+    } else if (response.game.status === 'stalemate' || response.game.status === 'draw') {
+      soundEngine.playGameEnd('draw');
+    }
     syncGameSnapshot(response.game);
     setOptimisticFen(null);
     setBehaviorLabel(response.engineMode ?? response.game.engineState.lastDominantMode);
@@ -669,6 +716,26 @@ export const useGameController = () => {
     });
   };
 
+  const requestHint = async () => {
+    if (!game?.gameId || thinking || isHintLoading) return;
+    setIsHintLoading(true);
+    setHintError(null);
+    try {
+      const res = await api.getHint(game.gameId);
+      setHint(res);
+      soundEngine.playMove();
+    } catch (err) {
+      setHintError(err instanceof Error ? err.message : "Failed to generate hint");
+    } finally {
+      setIsHintLoading(false);
+    }
+  };
+
+  const clearHint = () => {
+    setHint(null);
+    setHintError(null);
+  };
+
   const startNewGame = () => {
     clearPremove(true);
 
@@ -765,6 +832,18 @@ export const useGameController = () => {
       timestamp: new Date().toISOString(),
     });
     capturedSquareRef.current = validation.capturedSquare ?? null;
+    if (validation.san?.includes('#')) {
+      soundEngine.playCheck();
+      soundEngine.playGameEnd('win');
+    } else if (validation.san?.includes('+')) {
+      soundEngine.playCheck();
+    } else if (validation.san?.startsWith('O-O')) {
+      soundEngine.playCastle();
+    } else if (validation.capturedSquare) {
+      soundEngine.playCapture();
+    } else {
+      soundEngine.playMove();
+    }
     setThinking(true);
     setError(null);
     setPremoveExecuting(true);
@@ -778,6 +857,7 @@ export const useGameController = () => {
   };
 
   const commitMove = (sourceSquare: string, targetSquare: string, piece?: string) => {
+    setHint(null);
     if (!game) {
       setError((current) => current ?? "Connect the backend before making a move.");
       return false;
@@ -799,10 +879,25 @@ export const useGameController = () => {
 
     const previewResult = previewMove(sourceSquare, targetSquare, piece);
     if (!previewResult) {
+      soundEngine.playIllegal();
       return false;
     }
 
     const { preview, move, submittedPromotion } = previewResult;
+    if (preview.isCheckmate() || move.san.includes('#')) {
+      soundEngine.playCheck();
+      soundEngine.playGameEnd('win');
+    } else if (preview.inCheck() || move.san.includes('+')) {
+      soundEngine.playCheck();
+    } else if (move.flags.includes('k') || move.flags.includes('q') || move.san.startsWith('O-O')) {
+      soundEngine.playCastle();
+    } else if (submittedPromotion || move.promotion) {
+      soundEngine.playPromote();
+    } else if (move.captured || move.flags.includes('c') || move.flags.includes('e')) {
+      soundEngine.playCapture();
+    } else {
+      soundEngine.playMove();
+    }
 
     setSelectedSquare(null);
     setLegalTargets([]);
@@ -1069,7 +1164,9 @@ export const useGameController = () => {
     displayedFen,
     thinking,
     undoAnimating,
-    boardAnimationDuration: premoveExecuting ? PREMOVE_ANIMATION_MS : 300,
+    boardAnimationDuration: premoveExecuting ? PREMOVE_ANIMATION_MS : 200,
+    isSoundMuted: soundEngine.isMuted(),
+    toggleSound: () => soundEngine.toggleMute(),
     error,
     setError,
     behaviorLabel,
@@ -1129,5 +1226,10 @@ export const useGameController = () => {
     closeSideSelection: () => setSideSelectionOpen(false),
     confirmNewGameOpen,
     loadGame,
+    hint,
+    isHintLoading,
+    hintError,
+    requestHint,
+    clearHint,
   };
 };

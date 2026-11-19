@@ -218,6 +218,7 @@ export interface PersistentGameRepository {
   saveUser(user: UserRecord): Promise<void>;
   incrementEngineStats(delta: EngineStatDelta): Promise<void>;
   isHealthy(): Promise<boolean>;
+  initializeSchema?(): Promise<void>;
 }
 
 export interface GameRepository {

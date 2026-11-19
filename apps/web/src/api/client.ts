@@ -4,6 +4,7 @@ import type {
   CreateGameResponse,
   Difficulty,
   GameHistoryResponse,
+  HintResponse,
   LoginRequest,
   MoveRequest,
   MoveResponse,
@@ -118,6 +119,8 @@ export const api = {
     request<ResignResponse>(`/games/${gameId}/resign`, { method: "POST" }),
   offerDraw: (gameId: string) =>
     request<{ accepted: boolean; game: CreateGameResponse }>(`/games/${gameId}/draw-offer`, { method: "POST" }),
+  getHint: (gameId: string) =>
+    request<HintResponse>(`/games/${gameId}/hint`, { method: "POST" }),
   engineMove: (payload: MoveRequest) =>
     request<MoveResponse>("/engine/move", {
       method: "POST",

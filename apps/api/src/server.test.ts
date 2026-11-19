@@ -126,6 +126,34 @@ describe("Server HTTP endpoints & Middleware (Phase 1)", () => {
     expect(drawBody.game.status).toBe("draw");
   });
 
+  it("POST /games/:id/hint returns valid move suggestion and explanation", async () => {
+    const createRes = await app.inject({
+      method: "POST",
+      url: "/games",
+      headers: { "content-type": "application/json" },
+      payload: JSON.stringify({
+        difficulty: "intermediate",
+        playerColor: "white",
+        style: "solid",
+      }),
+    });
+    const game = JSON.parse(createRes.body);
+
+    const hintRes = await app.inject({
+      method: "POST",
+      url: `/games/${game.gameId}/hint`,
+    });
+
+    expect(hintRes.statusCode).toBe(200);
+    const hintBody = JSON.parse(hintRes.body);
+    expect(hintBody.gameId).toBe(game.gameId);
+    expect(hintBody.from).toMatch(/^[a-h][1-8]$/);
+    expect(hintBody.to).toMatch(/^[a-h][1-8]$/);
+    expect(typeof hintBody.san).toBe("string");
+    expect(typeof hintBody.explanation).toBe("string");
+    expect(hintBody.explanation.length).toBeGreaterThan(5);
+  });
+
   describe("Phase 3: Auth & Game History API", () => {
     let authToken = "";
     let registeredUserId = "";

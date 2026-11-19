@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { LoginRequest, RegisterRequest } from "@chessverse/contracts";
+import { CrownIcon } from "./icons";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -82,7 +83,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {/* Header */}
           <div className="flex items-center justify-between border-b border-white/10 pb-4">
             <div className="flex items-center gap-2.5">
-              <span className="text-2xl">♟️</span>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                <CrownIcon size={18} />
+              </div>
               <h2 className="text-lg font-bold text-white">
                 {tab === "login" ? "Welcome Back to Chessverse" : "Create Your Account"}
               </h2>

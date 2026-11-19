@@ -5,6 +5,7 @@ import {
   type Difficulty,
   type GameHistoryResponse,
   type GameSummary,
+  type HintResponse,
   type MoveHistoryEntry,
   type PlayerColor,
   type PlayerMoveRequest,
@@ -50,6 +51,7 @@ export class ValidationService {
 export class GameService {
   private readonly inFlightMoves = new Set<string>();
   private readonly idempotencyCache = new Map<string, Map<string, import("@chessverse/contracts").PlayerMoveResponse>>();
+  private readonly analyzingGames = new Set<string>();
 
   constructor(
     private readonly repository: GameRepository,
@@ -110,7 +112,97 @@ export class GameService {
     }
 
     game.engineState.gambit = normalizeGambitState(game.engineState.gambit);
+
+    if (this.moveAnalysis && game.moveHistory.some((entry) => !entry.analysis)) {
+      this.triggerMissingAnalysis(game);
+    }
+
     return game;
+  }
+
+  private triggerMissingAnalysis(game: StoredGame): void {
+    if (!this.moveAnalysis || this.analyzingGames.has(game.gameId)) {
+      return;
+    }
+
+    const missing = game.moveHistory.filter((entry) => !entry.analysis);
+    if (missing.length === 0) {
+      return;
+    }
+
+    this.analyzingGames.add(game.gameId);
+
+    setImmediate(async () => {
+      try {
+        for (const entry of missing) {
+          try {
+            const analysis = await this.moveAnalysis!.analyzePlayerMove({
+              gameId: game.gameId,
+              fenBefore: entry.fenBefore,
+              fenAfter: entry.fenAfter,
+              moveUci: entry.moveUci,
+              moveNotation: entry.moveNotation,
+              playerColor: entry.player === "human" ? game.playerColor : oppositeColor(game.playerColor),
+              difficulty: game.difficulty,
+              evalBeforeHint: entry.evaluation ?? null,
+            });
+
+            if (analysis) {
+              const current = await this.repository.getGame(game.gameId);
+              if (current) {
+                let updated = false;
+                current.moveHistory = current.moveHistory.map((m) => {
+                  if (
+                    m.player === entry.player &&
+                    m.moveNumber === entry.moveNumber &&
+                    m.moveUci === entry.moveUci
+                  ) {
+                    updated = true;
+                    return { ...m, analysis };
+                  }
+                  return m;
+                });
+                if (updated) {
+                  current.updatedAt = new Date().toISOString();
+                  await this.repository.saveGame(current);
+                }
+              }
+            }
+          } catch (itemErr) {
+            this.logger.warn(
+              { gameId: game.gameId, moveUci: entry.moveUci, error: itemErr },
+              "Failed analyzing single move in batch",
+            );
+          }
+        }
+      } catch (err) {
+        this.logger.warn({ gameId: game.gameId, error: err }, "Batch missing analysis failed");
+      } finally {
+        this.analyzingGames.delete(game.gameId);
+      }
+    });
+  }
+
+  async getHint(gameId: string): Promise<HintResponse> {
+    const game = await this.getGame(gameId);
+    if (["checkmate", "stalemate", "draw", "resigned"].includes(game.status)) {
+      throw new HttpError(400, "Cannot request a hint for a completed game");
+    }
+
+    const hint = await this.engineService.getHint(game.fen, 18);
+    if (!hint) {
+      throw new HttpError(503, "Unable to compute hint for this position, please retry");
+    }
+
+    return {
+      gameId,
+      from: hint.from,
+      to: hint.to,
+      moveUci: hint.move,
+      san: hint.san,
+      eval: hint.eval,
+      explanation: hint.explanation,
+    };
   }
 
   async applyPlayerMove(gameId: string, move: PlayerMoveRequest) {

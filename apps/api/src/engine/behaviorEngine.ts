@@ -184,9 +184,9 @@ export class BehaviorEngine {
                 this.psychological.analyzeCandidate(sharedContext, c, s),
         });
 
-        // Async scoring for each candidate
-        const evaluated = await Promise.all(
-            sharedContext.candidates.map(async (candidate) => {
+        // Async scoring for each candidate sequentially to avoid worker contention
+        const evaluated: EvaluatedCandidate[] = [];
+        for (const candidate of sharedContext.candidates) {
                 const snapshot = moveSnapshots.get(candidate.move) ?? null;
                 const afterFen = snapshot?.afterFen ?? sharedContext.fen;
 
@@ -210,18 +210,21 @@ export class BehaviorEngine {
 
                 // Pure Stockfish path — skip all behavior scoring
                 if (sharedContext.stockfishTruth.lockedToStockfish) {
-                    return buildFinalScore(
-                        candidate,
-                        stockfishWeight,
-                        {
-                            gambit: 0,
-                            trap: 0,
-                            sacrifice: 0,
-                            aggression: 0,
-                            psychological: 0,
-                        },
-                        baseAnnotation,
+                    evaluated.push(
+                        buildFinalScore(
+                            candidate,
+                            stockfishWeight,
+                            {
+                                gambit: 0,
+                                trap: 0,
+                                sacrifice: 0,
+                                aggression: 0,
+                                psychological: 0,
+                            },
+                            baseAnnotation,
+                        ),
                     );
+                    continue;
                 }
 
                 const gambitScore = await this.safeScore(
@@ -433,9 +436,8 @@ export class BehaviorEngine {
                     "Behavior scores computed for candidate",
                 );
 
-                return finalCandidate;
-            }),
-        );
+                evaluated.push(finalCandidate);
+        }
 
         if (evaluated.length === 0) {
             params.logger.warn(

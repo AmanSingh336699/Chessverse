@@ -1,4 +1,5 @@
 import React, { Component, type ErrorInfo, type ReactNode } from "react";
+import { AlertTriangleIcon } from "./icons";
 
 interface Props {
   children: ReactNode;
@@ -44,7 +45,7 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="min-h-screen bg-[#071320] text-stone-200 flex items-center justify-center p-6">
           <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(11,24,39,0.96),rgba(9,18,31,0.98))] p-6 sm:p-8 shadow-2xl text-center">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-400 mb-4">
-              <span className="text-2xl">⚠️</span>
+              <AlertTriangleIcon size={26} className="text-rose-400" />
             </div>
             
             <h1 className="text-xl sm:text-2xl font-bold text-white tracking-wide">

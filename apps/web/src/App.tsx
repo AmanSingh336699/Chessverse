@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chessboard } from "react-chessboard";
 import type { Arrow } from "react-chessboard/dist/chessboard/types";
 import { motion, AnimatePresence } from "framer-motion";
@@ -18,13 +18,16 @@ import { GameHistoryModal } from "./components/GameHistoryModal";
 import { HomePage } from "./components/HomePage";
 import { useAuth } from "./hooks/useAuth";
 import type { StyleId } from "@chessverse/contracts";
+import { BOARD_THEMES, CLASSIC_GREEN, getStoredBoardTheme, type BoardTheme } from "./lib/boardThemes";
+import { soundEngine } from "./lib/sound";
+import { SwordsIcon, ShieldIcon, DicesIcon, ZapIcon, KingPieceIcon, Volume2Icon, VolumeXIcon, PaletteIcon, AlertTriangleIcon, CheckIcon, ChevronDownIcon, RotateCcwIcon, ArrowUpDownIcon, PlusIcon, FlagIcon, LightbulbIcon } from "./components/icons";
 
 const STYLE_HEADER_META: Record<
   string,
   {
     name: string;
     tag: string;
-    icon: string;
+    Icon: typeof SwordsIcon;
     badgeBg: string;
     badgeBorder: string;
     badgeText: string;
@@ -34,7 +37,7 @@ const STYLE_HEADER_META: Record<
   aggressive: {
     name: "Aggressive",
     tag: "King Attacker",
-    icon: "⚔️",
+    Icon: SwordsIcon,
     badgeBg: "bg-rose-500/15",
     badgeBorder: "border-rose-400/35",
     badgeText: "text-rose-200",
@@ -43,7 +46,7 @@ const STYLE_HEADER_META: Record<
   solid: {
     name: "Solid",
     tag: "Positional Master",
-    icon: "🛡️",
+    Icon: ShieldIcon,
     badgeBg: "bg-cyan-500/15",
     badgeBorder: "border-cyan-400/35",
     badgeText: "text-cyan-200",
@@ -52,7 +55,7 @@ const STYLE_HEADER_META: Record<
   gambiteer: {
     name: "Gambiteer",
     tag: "Romantic Sacrifices",
-    icon: "🎲",
+    Icon: DicesIcon,
     badgeBg: "bg-purple-500/15",
     badgeBorder: "border-purple-400/35",
     badgeText: "text-purple-200",
@@ -61,7 +64,7 @@ const STYLE_HEADER_META: Record<
   tricky: {
     name: "Tricky",
     tag: "Tactical Swindler",
-    icon: "⚡",
+    Icon: ZapIcon,
     badgeBg: "bg-amber-500/15",
     badgeBorder: "border-amber-400/35",
     badgeText: "text-amber-200",
@@ -88,20 +91,20 @@ const clamp = (value: number, min: number, max: number) =>
 
 const calculateBoardWidth = (viewportWidth: number, viewportHeight: number) => {
   if (viewportWidth < 480) {
-    return clamp(Math.min(viewportWidth - 36, viewportHeight - 240), 260, 380);
+    return clamp(Math.min(viewportWidth - 20, viewportHeight - 205), 250, 400);
   }
   if (viewportWidth < 640) {
-    return clamp(Math.min(viewportWidth - 48, viewportHeight - 230), 300, 440);
+    return clamp(Math.min(viewportWidth - 32, viewportHeight - 210), 290, 460);
   }
   if (viewportWidth < 1024) {
-    return clamp(Math.min(viewportWidth - 64, viewportHeight - 220), 360, 580);
+    return clamp(Math.min(viewportWidth - 48, viewportHeight - 210), 340, 580);
   }
   if (viewportWidth < 1440) {
-    const colWidth = (Math.min(viewportWidth, 1820) - 80) * 0.55;
-    return clamp(Math.min(colWidth - 48, viewportHeight - 200), 440, 720);
+    const colWidth = (Math.min(viewportWidth, 1820) - 72) * 0.55;
+    return clamp(Math.min(colWidth - 44, viewportHeight - 190), 440, 720);
   }
-  const colWidth = (Math.min(viewportWidth, 1820) - 96) * 0.58;
-  return clamp(Math.min(colWidth - 56, viewportHeight - 200), 520, 840);
+  const colWidth = (Math.min(viewportWidth, 1820) - 88) * 0.58;
+  return clamp(Math.min(colWidth - 52, viewportHeight - 190), 520, 840);
 };
 
 const getBoardWidth = () => {
@@ -196,6 +199,8 @@ const getCaptured = (
   };
 };
 
+const EMPTY_ARROWS: Arrow[] = [];
+
 const App = () => {
   const controller = useGameController();
   const auth = useAuth();
@@ -207,15 +212,77 @@ const App = () => {
   const [reviewMode, setReviewMode] = useState(false);
   const [shakeBoard, setShakeBoard] = useState(false);
   const boardContainerRef = useRef<HTMLDivElement | null>(null);
+  const [boardThemeKey, setBoardThemeKey] = useState<string>(getStoredBoardTheme);
+  const [userArrows, setUserArrows] = useState<Arrow[]>([]);
+  const [userHighlights, setUserHighlights] = useState<Record<string, string>>({});
+  const [isSoundMuted, setIsSoundMuted] = useState<boolean>(() => soundEngine.isMuted());
+  const [isThemePickerOpen, setIsThemePickerOpen] = useState(false);
+  const lastRefreshedGameIdRef = useRef<string | null>(null);
+  const controllerRef = useRef(controller);
+  controllerRef.current = controller;
 
-  const handleShake = () => {
+  const activeTheme: BoardTheme = BOARD_THEMES[boardThemeKey] ?? CLASSIC_GREEN;
+
+  const handleSelectTheme = (themeId: string) => {
+    setBoardThemeKey(themeId);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("chessverse:board-theme", themeId);
+    }
+    setIsThemePickerOpen(false);
+  };
+
+  const handleToggleSound = () => {
+    const next = soundEngine.toggleMute();
+    setIsSoundMuted(next);
+  };
+
+  const handleSquareRightClick = (square: string) => {
+    controller.clearPremove();
+    setUserHighlights((prev) => {
+      const next = { ...prev };
+      if (next[square]) {
+        delete next[square];
+      } else {
+        next[square] = "rgba(235, 97, 80, 0.65)";
+      }
+      return next;
+    });
+  };
+
+  const clearUserDrawings = useCallback(() => {
+    setUserArrows((prev) => (prev.length === 0 ? prev : []));
+    setUserHighlights((prev) => (Object.keys(prev).length === 0 ? prev : {}));
+  }, []);
+
+  const handleArrowsChange = useCallback((arrows: Arrow[]) => {
+    setUserArrows((prev) => {
+      if (prev.length === 0 && arrows.length === 0) return prev;
+      if (
+        prev.length === arrows.length &&
+        prev.every(
+          (a, i) =>
+            a[0] === arrows[i]?.[0] &&
+            a[1] === arrows[i]?.[1] &&
+            a[2] === arrows[i]?.[2],
+        )
+      ) {
+        return prev;
+      }
+      return arrows;
+    });
+  }, []);
+
+  const handleShake = useCallback(() => {
     setShakeBoard(true);
     setTimeout(() => setShakeBoard(false), 200);
-  };
+  }, []);
 
   const handleStartGameFromHome = (style?: StyleId) => {
     if (style) {
       controller.setStyle(style);
+    }
+    if (!controller.hasLiveGame) {
+      controller.openSideSelection();
     }
     setCurrentView("arena");
   };
@@ -226,50 +293,37 @@ const App = () => {
   };
 
   useEffect(() => {
+    const status = controller.game?.status;
+    const gameId = controller.game?.gameId;
     if (
-      controller.game?.status &&
-      ["checkmate", "stalemate", "draw", "resigned"].includes(controller.game.status)
+      status &&
+      gameId &&
+      lastRefreshedGameIdRef.current !== gameId &&
+      ["checkmate", "stalemate", "draw", "resigned"].includes(status)
     ) {
+      lastRefreshedGameIdRef.current = gameId;
       void auth.refreshProfile();
     }
-  }, [controller.game?.status, auth.refreshProfile]);
+  }, [controller.game?.gameId, controller.game?.status, auth.refreshProfile]);
 
   useEffect(() => {
+    let rafId: number | null = null;
     const updateSize = () => {
-      if (!boardContainerRef.current) {
-        setBoardWidth(getBoardWidth());
-        return;
-      }
-      const containerWidth = boardContainerRef.current.clientWidth;
-      const viewportHeight = window.innerHeight;
-      const viewportWidth = window.innerWidth;
-      const isMobile = viewportWidth < 640;
-      const isTablet = viewportWidth >= 640 && viewportWidth < 1024;
-
-      const evalBarOffset = isMobile ? 0 : 84;
-      const innerPadding = isMobile ? 12 : isTablet ? 20 : 28;
-      const availableWidth = Math.max(250, containerWidth - innerPadding - evalBarOffset);
-      const reservedHeight = isMobile ? 240 : isTablet ? 210 : 190;
-      const availableHeight = Math.max(250, viewportHeight - reservedHeight);
-
-      const optimalSize = Math.floor(Math.min(availableWidth, availableHeight));
-      const minSize = isMobile ? 260 : isTablet ? 340 : 440;
-      const maxSize = isMobile ? 420 : isTablet ? 580 : 800;
-
-      setBoardWidth(clamp(optimalSize, minSize, maxSize));
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        const nextWidth = getBoardWidth();
+        setBoardWidth((prev) => (Math.abs(prev - nextWidth) > 2 ? nextWidth : prev));
+      });
     };
 
     updateSize();
-    const observer = new ResizeObserver(updateSize);
-    if (boardContainerRef.current) {
-      observer.observe(boardContainerRef.current);
-    }
     window.addEventListener("resize", updateSize);
     return () => {
-      observer.disconnect();
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
       window.removeEventListener("resize", updateSize);
     };
-  }, []);
+  }, [currentView]);
 
   const reviewFen = useMemo(() => {
     if (selectedMoveIndex !== null && controller.game) {
@@ -319,55 +373,91 @@ const App = () => {
     return {};
   }, [lastAnalysis, lastMoveEntry]);
 
-  const customSquareStyles = Object.fromEntries([
-    ...(controller.lastSquares ?? []).map((square) => [
-      square,
-      { background: "rgba(227,169,76,0.30)" },
-    ]),
-    ...controller.legalTargets.map((square) => [
-      square,
-      {
+  const customSquareStyles = useMemo(() => {
+    const styles: Record<string, React.CSSProperties> = {};
+
+    for (const square of controller.lastSquares ?? []) {
+      styles[square] = { background: activeTheme.lastMoveColor };
+    }
+
+    for (const square of controller.legalTargets) {
+      styles[square] = {
         background:
-          "radial-gradient(circle, rgba(246,199,110,0.86) 16%, rgba(246,199,110,0.14) 17%)",
-      },
-    ]),
-    ...controller.captureTargets.map((square) => [
-      square,
-      {
-        background: "transparent",
-        boxShadow: "inset 0 0 0 3px #FF4B4B",
-        animation: "pulse-ring 2s infinite ease-in-out",
-        transition: "transform 0.15s ease-out, box-shadow 0.15s ease-out",
-        transform: "scale(1)",
+          "radial-gradient(circle, rgba(0, 0, 0, 0.18) 22%, transparent 23%)",
         cursor: "pointer",
-        className: "threat-ring",
-      },
-    ]),
-    ...(controller.selectedSquare
-      ? [[controller.selectedSquare, { background: "rgba(247,240,223,0.14)" }]]
-      : []),
-    ...(controller.checkSquare
-      ? [[controller.checkSquare, { background: "rgba(205,54,54,0.48)" }]]
-      : []),
-    ...(controller.capturedSquare
-      ? [[controller.capturedSquare, { className: "ripple-flash" }]]
-      : []),
-    ...Object.entries(blunderHighlight),
-    ...(controller.premoveSquares
-      ? controller.premoveSquares.map((square) => [
-          square,
-          {
-            background: "rgba(6,182,212,0.22)",
-            boxShadow: "inset 0 0 0 2.5px #06b6d4, 0 0 14px rgba(6,182,212,0.35)",
-            borderRadius: "4px",
-          },
-        ])
-      : []),
+      };
+    }
+
+    for (const square of controller.captureTargets) {
+      styles[square] = {
+        background:
+          "radial-gradient(circle, transparent 65%, rgba(0, 0, 0, 0.22) 66%, rgba(0, 0, 0, 0.22) 78%, transparent 79%)",
+        cursor: "pointer",
+      };
+    }
+
+    if (controller.selectedSquare) {
+      styles[controller.selectedSquare] = { background: activeTheme.selectedColor };
+    }
+
+    if (controller.checkSquare) {
+      styles[controller.checkSquare] = {
+        background:
+          "radial-gradient(ellipse at center, rgba(239, 68, 68, 0.9) 0%, rgba(220, 38, 38, 0.6) 38%, rgba(185, 28, 28, 0.2) 72%, transparent 100%)",
+      };
+    }
+
+    for (const [square, color] of Object.entries(userHighlights)) {
+      styles[square] = { background: color };
+    }
+
+    if (controller.capturedSquare) {
+      styles[controller.capturedSquare] = { className: "ripple-flash" } as React.CSSProperties;
+    }
+
+    for (const [square, styleObj] of Object.entries(blunderHighlight)) {
+      styles[square] = { ...styles[square], ...styleObj };
+    }
+
+    if (controller.premoveSquares) {
+      for (const square of controller.premoveSquares) {
+        styles[square] = {
+          background: "rgba(244, 91, 53, 0.45)",
+          boxShadow: "inset 0 0 0 2.5px rgba(244, 91, 53, 0.8)",
+        };
+      }
+    }
+
+    if (controller.hint) {
+      styles[controller.hint.from] = {
+        background: "radial-gradient(circle, rgba(245, 158, 11, 0.45) 0%, rgba(245, 158, 11, 0.15) 70%, transparent 100%)",
+        boxShadow: "inset 0 0 0 2px rgba(245, 158, 11, 0.8)",
+      };
+      styles[controller.hint.to] = {
+        background: "radial-gradient(circle, rgba(245, 158, 11, 0.35) 0%, rgba(245, 158, 11, 0.1) 70%, transparent 100%)",
+        boxShadow: "inset 0 0 0 2px rgba(245, 158, 11, 0.7)",
+      };
+    }
+
+    return styles;
+  }, [
+    activeTheme.lastMoveColor,
+    activeTheme.selectedColor,
+    blunderHighlight,
+    controller.captureTargets,
+    controller.capturedSquare,
+    controller.checkSquare,
+    controller.hint,
+    controller.lastSquares,
+    controller.legalTargets,
+    controller.premoveSquares,
+    controller.selectedSquare,
+    userHighlights,
   ]);
 
   const reviewArrows = useMemo<Arrow[]>(() => {
     if (!selectedEntry) {
-      return [];
+      return EMPTY_ARROWS;
     }
 
     const arrows: Arrow[] = [];
@@ -397,19 +487,27 @@ const App = () => {
       }
     }
 
-    return arrows;
+    return arrows.length > 0 ? arrows : EMPTY_ARROWS;
   }, [selectedEntry]);
 
   const boardArrows = useMemo<Arrow[]>(() => {
-    const arrows = [...reviewArrows];
+    const arrows: Arrow[] = [...reviewArrows];
 
     if (controller.premoveArrow) {
       const [from, to, color] = controller.premoveArrow;
       arrows.push([from as Arrow[0], to as Arrow[1], color]);
     }
 
-    return arrows;
-  }, [controller.premoveArrow, reviewArrows]);
+    if (controller.hint) {
+      arrows.push([
+        controller.hint.from as Arrow[0],
+        controller.hint.to as Arrow[1],
+        "rgba(245, 158, 11, 0.92)",
+      ]);
+    }
+
+    return arrows.length > 0 ? arrows : EMPTY_ARROWS;
+  }, [controller.hint, controller.premoveArrow, reviewArrows]);
 
   const statusToneClass =
     controller.statusTone === "error"
@@ -452,25 +550,25 @@ const App = () => {
   };
 
   useEffect(() => {
-    setSelectedMoveIndex(null);
+    setSelectedMoveIndex((prev) => (prev !== null ? null : prev));
     if (
       controller.game?.status === "playing" ||
       controller.game?.status === "check"
     ) {
-      setReviewMode(false);
+      setReviewMode((prev) => (prev ? false : prev));
     }
   }, [controller.game?.gameId, controller.game?.moveHistory.length, controller.game?.status]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        controller.clearPremove();
-        controller.clearTargets();
+        controllerRef.current.clearPremove();
+        controllerRef.current.clearTargets();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [controller]);
+  }, []);
 
   const handleReviewGame = () => {
     if (!controller.game || controller.game.moveHistory.length === 0) {
@@ -556,7 +654,7 @@ const App = () => {
                   className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold backdrop-blur-md transition-all ${currentStyle.badgeBorder} ${currentStyle.badgeBg} ${currentStyle.badgeText} ${currentStyle.glow}`}
                   title={`Opponent Style: ${currentStyle.name} (${currentStyle.tag})`}
                 >
-                  <span className="text-sm">{currentStyle.icon}</span>
+                  <currentStyle.Icon size={14} className="shrink-0" />
                   <div className="flex items-baseline gap-1.5">
                     <span className="font-bold tracking-wide">{currentStyle.name}</span>
                     <span className="text-[10px] opacity-80 font-normal hidden sm:inline">({currentStyle.tag})</span>
@@ -578,7 +676,7 @@ const App = () => {
                   className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-stone-200"
                   title={`You are commanding ${controller.playerColor}`}
                 >
-                  <span className="text-sm leading-none">{controller.playerColor === "white" ? "♔" : "♚"}</span>
+                  <KingPieceIcon size={16} fill={controller.playerColor} className="shrink-0" />
                   <span className="capitalize font-semibold text-brand-100">{controller.playerColor}</span>
                 </div>
               </div>
@@ -651,7 +749,7 @@ const App = () => {
                 ) : null}
                 {controller.premoveNotice ? (
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/35 bg-amber-500/15 px-3 py-1 text-[10px] sm:text-[11px] font-medium text-amber-200 shadow-[0_0_12px_rgba(245,158,11,0.2)]">
-                    <span>⚠️ {controller.premoveNotice}</span>
+                    <span className="flex items-center gap-1.5"><AlertTriangleIcon size={13} className="text-amber-400 shrink-0" /><span>{controller.premoveNotice}</span></span>
                     <button
                       type="button"
                       onClick={() => controller.clearPremoveNotice()}
@@ -732,11 +830,9 @@ const App = () => {
               <div
                 onContextMenu={(e) => {
                   e.preventDefault();
-                  controller.handleSquareRightClick();
                 }}
-                className="relative grid place-items-center w-full max-w-fit rounded-[20px] sm:rounded-[30px] border border-white/6 bg-[linear-gradient(180deg,rgba(11,24,39,0.82),rgba(9,18,31,0.96))] p-1.5 sm:p-3 lg:p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] select-none"
+                className="relative grid place-items-center w-full max-w-fit rounded-xl border border-white/10 bg-[#161512] p-1.5 sm:p-2.5 shadow-[0_20px_60px_rgba(0,0,0,0.6)] select-none"
               >
-                <div className="pointer-events-none absolute inset-2.5 sm:inset-4 rounded-2xl sm:rounded-3xl border border-cyan-300/8" />
                 <Chessboard
                   id="chessverse-board"
                   position={reviewFen}
@@ -744,36 +840,49 @@ const App = () => {
                   isDraggablePiece={({ piece }) =>
                     piece.startsWith(controller.playerColor === "white" ? "w" : "b")
                   }
+                  snapToCursor={true}
                   arePremovesAllowed={true}
                   clearPremovesOnRightClick={true}
+                  areArrowsAllowed={true}
+                  customArrowColor="rgba(255, 170, 0, 0.88)"
                   boardOrientation={controller.orientation}
                   animationDuration={controller.boardAnimationDuration}
                   boardWidth={boardWidth}
                   customSquareStyles={customSquareStyles}
                   customArrows={boardArrows}
                   showBoardNotation={true}
-                  onPieceDragBegin={(_piece, square) =>
-                    controller.refreshTargets(square)
-                  }
+                  onArrowsChange={handleArrowsChange}
+                  onPieceDragBegin={(_piece, square) => {
+                    clearUserDrawings();
+                    controller.clearHint();
+                    controller.refreshTargets(square);
+                  }}
                   onPieceDragEnd={() => controller.clearTargets()}
-                  onSquareClick={controller.handleSquareClick}
-                  onSquareRightClick={controller.handleSquareRightClick}
-                  onPieceDrop={controller.handleDrop}
+                  onSquareClick={(square) => {
+                    clearUserDrawings();
+                    controller.clearHint();
+                    controller.handleSquareClick(square);
+                  }}
+                  onSquareRightClick={(square) => handleSquareRightClick(square)}
+                  onPieceDrop={(source, target, piece) => {
+                    clearUserDrawings();
+                    controller.clearHint();
+                    return controller.handleDrop(source, target, piece);
+                  }}
                   customDarkSquareStyle={{
-                    backgroundColor: "#2a4c60",
+                    backgroundColor: activeTheme.darkSquare,
                   }}
                   customLightSquareStyle={{
-                    backgroundColor: "#e8eff2",
+                    backgroundColor: activeTheme.lightSquare,
                   }}
                   customBoardStyle={{
-                    borderRadius: "18px",
-                    boxShadow:
-                      "0 24px 70px rgba(2,8,20,0.55), 0 0 0 1px rgba(124,231,214,0.12)",
+                    borderRadius: "6px",
+                    boxShadow: "0 12px 36px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08)",
                   }}
                   customNotationStyle={{
-                    fontSize: boardWidth < 360 ? "9px" : "11px",
+                    fontSize: boardWidth < 360 ? "10px" : "11px",
                     fontWeight: "700",
-                    opacity: "0.75",
+                    opacity: "0.85",
                   }}
                 />
                 <EffectsLayer
@@ -805,8 +914,69 @@ const App = () => {
               }
             />
 
+            {/* Tactical Hint Banner */}
+            <AnimatePresence>
+              {controller.hint ? (
+                <motion.div
+                  initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                  transition={{ duration: 0.18 }}
+                  className="mt-2.5 flex items-center justify-between gap-3 rounded-2xl border border-amber-400/35 bg-gradient-to-r from-amber-500/15 via-amber-950/25 to-slate-900/60 p-2.5 sm:p-3 shadow-lg backdrop-blur-md"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 border border-amber-400/30 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.25)]">
+                      <LightbulbIcon size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                        <span className="font-mono text-xs font-black uppercase text-amber-300 tracking-wide">
+                          Best Move: {controller.hint.san}
+                        </span>
+                        <span className="rounded-md bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-mono font-semibold text-amber-200 uppercase border border-amber-400/25">
+                          {controller.hint.from} ➔ {controller.hint.to}
+                        </span>
+                        {typeof controller.hint.eval === "number" ? (
+                          <span className="text-[10px] text-stone-300 font-mono">
+                            Eval: {controller.hint.eval > 0 ? `+${controller.hint.eval.toFixed(1)}` : controller.hint.eval.toFixed(1)}
+                          </span>
+                        ) : null}
+                        <span className="rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wider text-emerald-300 border border-emerald-400/25">
+                          Stockfish Master 2850+
+                        </span>
+                      </div>
+                      <p className="text-xs text-stone-200 mt-0.5 leading-snug line-clamp-2">
+                        {controller.hint.explanation}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={controller.clearHint}
+                    className="shrink-0 rounded-lg p-1 text-stone-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer text-xs"
+                    title="Dismiss Hint"
+                  >
+                    ✕
+                  </button>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+
+            {controller.hintError ? (
+              <div className="mt-2 flex items-center justify-between rounded-xl border border-rose-500/30 bg-rose-500/15 px-3 py-2 text-xs text-rose-200">
+                <span>{controller.hintError}</span>
+                <button
+                  type="button"
+                  onClick={controller.clearHint}
+                  className="ml-2 text-rose-300 hover:text-white cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : null}
+
             {/* Quick Action Toolbar directly under the board */}
-            <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-white/6 px-1 pt-2.5 sm:px-2">
+            <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 px-1 pt-2.5 sm:px-2">
               <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                 <button
                   type="button"
@@ -819,10 +989,7 @@ const App = () => {
                   }`}
                   title={controller.undoHint}
                 >
-                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 7v6h6" />
-                    <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
-                  </svg>
+                  <RotateCcwIcon size={14} />
                   <span>Undo</span>
                 </button>
 
@@ -833,10 +1000,99 @@ const App = () => {
                   className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-semibold text-stone-200 transition hover:bg-white/10 disabled:opacity-40 touch-manipulation"
                   title="Flip Board View"
                 >
-                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M7 16V4M7 4L3 8M7 4L11 8M17 8V20M17 20L21 16M17 20L13 16" />
-                  </svg>
+                  <ArrowUpDownIcon size={14} />
                   <span>Flip</span>
+                </button>
+
+                {/* Sound Toggle Button */}
+                <button
+                  type="button"
+                  onClick={handleToggleSound}
+                  className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-semibold transition touch-manipulation ${
+                    isSoundMuted
+                      ? "border-rose-400/25 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20"
+                      : "border-emerald-400/25 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                  }`}
+                  title={isSoundMuted ? "Unmute chess sound effects" : "Mute chess sound effects"}
+                >
+                  {isSoundMuted ? <VolumeXIcon size={14} /> : <Volume2Icon size={14} />}
+                  <span className="hidden sm:inline">{isSoundMuted ? "Muted" : "Sound"}</span>
+                </button>
+
+                {/* Board Theme Switcher Dropdown */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsThemePickerOpen((prev) => !prev)}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-semibold text-stone-200 transition hover:bg-white/10 touch-manipulation"
+                    title="Change Chessboard Theme"
+                  >
+                    <PaletteIcon size={14} className="text-stone-300" />
+                    <span className="hidden sm:inline">{activeTheme.name}</span>
+                    <ChevronDownIcon size={12} className="opacity-60" />
+                  </button>
+
+                  {isThemePickerOpen ? (
+                    <div className="absolute bottom-full left-0 mb-2 z-50 w-48 rounded-xl border border-white/12 bg-[#121c28] p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.6)] backdrop-blur-xl">
+                      <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-stone-400">
+                        Board Theme
+                      </p>
+                      {Object.values(BOARD_THEMES).map((theme) => (
+                        <button
+                          key={theme.id}
+                          type="button"
+                          onClick={() => handleSelectTheme(theme.id)}
+                          className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                            boardThemeKey === theme.id
+                              ? "bg-cyan-500/20 text-cyan-200 font-semibold"
+                              : "text-stone-300 hover:bg-white/5"
+                          }`}
+                        >
+                          <span className="flex items-center gap-2">
+                            <span className="flex h-3.5 w-3.5 overflow-hidden rounded-full border border-white/30">
+                              <span
+                                className="w-1/2 h-full"
+                                style={{ backgroundColor: theme.lightSquare }}
+                              />
+                              <span
+                                className="w-1/2 h-full"
+                                style={{ backgroundColor: theme.darkSquare }}
+                              />
+                            </span>
+                            <span>{theme.name}</span>
+                          </span>
+                          {boardThemeKey === theme.id ? <CheckIcon size={13} className="text-cyan-300" /> : null}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* AI Hint Button */}
+                <button
+                  type="button"
+                  onClick={controller.requestHint}
+                  disabled={
+                    !controller.hasLiveGame ||
+                    controller.thinking ||
+                    controller.isHintLoading ||
+                    ["checkmate", "draw", "stalemate", "resigned"].includes(
+                      controller.game?.status ?? "",
+                    )
+                  }
+                  className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-semibold transition touch-manipulation cursor-pointer ${
+                    controller.hint
+                      ? "border-amber-400/50 bg-amber-500/25 text-amber-200 shadow-[0_0_12px_rgba(245,158,11,0.3)]"
+                      : "border-white/10 bg-white/5 text-stone-200 hover:border-amber-400/30 hover:bg-amber-500/10 hover:text-amber-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                  }`}
+                  title="Get Stockfish Master Move Hint (Depth 18, 2850+ Elo)"
+                >
+                  {controller.isHintLoading ? (
+                    <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-amber-300 border-t-transparent" />
+                  ) : (
+                    <LightbulbIcon size={14} className="text-amber-300" />
+                  )}
+                  <span>{controller.isHintLoading ? "Analyzing..." : "Hint"}</span>
                 </button>
 
                 <button
@@ -845,9 +1101,7 @@ const App = () => {
                   className="inline-flex items-center gap-1.5 rounded-xl btn-premium px-3.5 py-1.5 sm:py-2 text-xs font-bold touch-manipulation"
                   title="Start New Game"
                 >
-                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 5v14M5 12h14" />
-                  </svg>
+                  <PlusIcon size={14} />
                   <span>New Game</span>
                 </button>
               </div>
@@ -860,10 +1114,7 @@ const App = () => {
                   className="inline-flex items-center gap-1.5 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/20 disabled:opacity-30 disabled:cursor-not-allowed touch-manipulation"
                   title="Resign Game"
                 >
-                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
-                    <line x1="4" y1="22" x2="4" y2="15" />
-                  </svg>
+                  <FlagIcon size={14} />
                   <span>Resign</span>
                 </button>
               </div>
@@ -881,24 +1132,35 @@ const App = () => {
                   <h2 className="font-display mt-2 sm:mt-3 text-2xl sm:text-3xl text-brand-100 drop-shadow-md">
                     {controller.isBootstrapping
                       ? "Waking up the engine"
-                      : "Connect to begin"}
+                      : "Start a Match"}
                   </h2>
                   <p className="mt-3 text-xs sm:text-sm leading-relaxed text-stone-300/90">
                     {controller.isBootstrapping
                       ? "Setting up the game state and preparing the AI personality. This only takes a moment."
-                      : "The board is ready visually, but the backend has to be available before moves can be processed."}
+                      : "Choose your pieces and challenge the adaptive chess AI personality."}
                   </p>
-                  <motion.button
-                    whileHover={{ scale: 1.04 }}
-                    whileTap={{ scale: 0.96 }}
-                    className="mt-5 inline-flex w-full items-center justify-center rounded-2xl btn-premium px-4 py-3 text-sm font-bold touch-manipulation"
-                    onClick={controller.retryConnection}
-                    disabled={controller.isBootstrapping}
-                  >
-                    {controller.isBootstrapping
-                      ? "Connecting..."
-                      : "Retry Connection"}
-                  </motion.button>
+                  <div className="mt-5 flex flex-col sm:flex-row gap-2.5">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="inline-flex flex-1 items-center justify-center rounded-2xl btn-premium px-4 py-3 text-sm font-bold touch-manipulation cursor-pointer"
+                      onClick={() => controller.openSideSelection()}
+                      disabled={controller.isBootstrapping}
+                    >
+                      <PlusIcon size={16} className="mr-1.5" />
+                      <span>{controller.isBootstrapping ? "Connecting..." : "New Game"}</span>
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 px-4 py-3 text-xs font-semibold text-stone-300 transition-colors touch-manipulation cursor-pointer"
+                      onClick={controller.retryConnection}
+                      disabled={controller.isBootstrapping}
+                      title="Reconnect to Chess Engine"
+                    >
+                      <span>Reconnect</span>
+                    </motion.button>
+                  </div>
                 </div>
               </div>
             ) : null}

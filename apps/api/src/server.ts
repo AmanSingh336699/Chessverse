@@ -35,6 +35,15 @@ const oppositeColor = (color: "white" | "black") =>
   color === "white" ? "black" : "white";
 
 export const buildServer = async () => {
+  // Prevent broken worker pipes from crashing the HTTP server
+  process.on("uncaughtException", (err: any) => {
+    if (err?.code === "EPIPE" || err?.code === "ERR_STREAM_DESTROYED") {
+      logger.warn({ err }, "Ignored EPIPE on closed child process stream");
+      return;
+    }
+    logger.error({ err }, "Uncaught process exception");
+  });
+
   const app = Fastify({
     loggerInstance: logger,
     bodyLimit: 1048576, // 1MB limit
@@ -279,6 +288,11 @@ export const buildServer = async () => {
   app.post("/games/:id/draw-offer", async (request) => {
     const params = request.params as { id: string };
     return gameService.offerDraw(params.id);
+  });
+
+  app.post("/games/:id/hint", async (request) => {
+    const params = request.params as { id: string };
+    return gameService.getHint(params.id);
   });
 
   app.setErrorHandler((error, request, reply) => {

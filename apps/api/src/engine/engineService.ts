@@ -127,6 +127,156 @@ export class EngineService {
         }
     }
 
+    async getHint(
+        fen: string,
+        depth = 18,
+    ): Promise<{
+        move: string;
+        from: string;
+        to: string;
+        san: string;
+        eval: number | null;
+        explanation: string;
+    } | null> {
+        // 1. Check opening book if in early opening
+        if (this.openingBook) {
+            try {
+                const bookMove = this.openingBook.getMove(fen);
+                if (bookMove) {
+                    const chess = createChess(fen);
+                    const moveShape = uciToMoveShape(bookMove);
+                    if (moveShape) {
+                        const applied = chess.move(moveShape);
+                        if (applied) {
+                            return {
+                                move: bookMove,
+                                from: bookMove.slice(0, 2),
+                                to: bookMove.slice(2, 4),
+                                san: applied.san,
+                                eval: 0.15,
+                                explanation:
+                                    "Classical Opening Theory: Develops piece harmony and establishes fundamental central control.",
+                            };
+                        }
+                    }
+                }
+            } catch {
+                // fall through to Stockfish
+            }
+        }
+
+        // 2. Query Stockfish
+        try {
+            const candidates = await this.pool.withWorker(
+                "hint-query",
+                async (worker) => {
+                    const result = await this.analysisService.getCandidates(
+                        worker,
+                        fen,
+                        depth,
+                    );
+                    return result.candidates;
+                },
+                1,
+            );
+
+            const top = candidates[0];
+            if (top) {
+                const chess = createChess(fen);
+                const moveShape = uciToMoveShape(top.move);
+                let san = top.move;
+                let explanation = "Stockfish engine top tactical choice.";
+                if (moveShape) {
+                    try {
+                        const applied = chess.move(moveShape);
+                        if (applied) {
+                            san = applied.san;
+                            explanation = this.generateMoveExplanation(applied);
+                        }
+                    } catch {
+                        // fallback
+                    }
+                }
+
+                return {
+                    move: top.move,
+                    from: top.move.slice(0, 2),
+                    to: top.move.slice(2, 4),
+                    san,
+                    eval: top.eval,
+                    explanation,
+                };
+            }
+        } catch {
+            // fall through to fallback
+        }
+
+        // 3. Fallback: evaluate legal moves directly with chess.js
+        try {
+            const chess = createChess(fen);
+            const moves = chess.moves({ verbose: true });
+            if (moves.length === 0) return null;
+
+            const prioritized = moves.sort((a, b) => {
+                if (a.captured && !b.captured) return -1;
+                if (!a.captured && b.captured) return 1;
+                if (a.san.includes("+") && !b.san.includes("+")) return -1;
+                return 0;
+            });
+
+            const best = prioritized[0];
+            if (!best) return null;
+            const uci = `${best.from}${best.to}${best.promotion ?? ""}`;
+            return {
+                move: uci,
+                from: best.from,
+                to: best.to,
+                san: best.san,
+                eval: null,
+                explanation: this.generateMoveExplanation(best),
+            };
+        } catch {
+            return null;
+        }
+    }
+
+    private generateMoveExplanation(move: {
+        piece?: string;
+        san: string;
+        captured?: string;
+        to: string;
+    }): string {
+        const pieceNames: Record<string, string> = {
+            p: "pawn",
+            n: "knight",
+            b: "bishop",
+            r: "rook",
+            q: "queen",
+            k: "king",
+        };
+        const pieceKey = move.piece?.toLowerCase();
+        const piece = (pieceKey ? pieceNames[pieceKey] : null) ?? "piece";
+
+        if (move.san.includes("#")) {
+            return "Delivers checkmate, clinching an immediate victory!";
+        }
+        if (move.san.includes("+")) {
+            return "Attacks the enemy king with check to seize the tactical initiative.";
+        }
+        if (move.captured) {
+            const capturedKey = move.captured.toLowerCase();
+            const capturedPiece = pieceNames[capturedKey] ?? "piece";
+            return `Captures the ${capturedPiece} on ${move.to}, winning material or favorable trades.`;
+        }
+        if (move.san === "O-O" || move.san === "O-O-O") {
+            return "Castles to secure king safety and bring the rook into active play.";
+        }
+        if (move.piece === "p") {
+            return `Pushes pawn to ${move.to} to stake claim in the center and open lines for your pieces.`;
+        }
+        return `Develops ${piece} to ${move.to}, improving piece coordination and controlling vital squares.`;
+    }
+
     async chooseMove(params: {
         gameId: string;
         fen: string;

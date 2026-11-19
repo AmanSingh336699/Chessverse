@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { GameSummary } from "@chessverse/contracts";
 import { api } from "../api/client.js";
+import { ScrollIcon, KingPieceIcon } from "./icons";
 
 interface GameHistoryModalProps {
   isOpen: boolean;
@@ -79,7 +80,9 @@ export const GameHistoryModal: React.FC<GameHistoryModalProps> = ({
           {/* Header */}
           <div className="flex items-center justify-between border-b border-white/10 pb-4">
             <div className="flex items-center gap-2.5">
-              <span className="text-2xl">📜</span>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-400">
+                <ScrollIcon size={18} />
+              </div>
               <div>
                 <h2 className="text-lg font-bold text-white">Your Match History</h2>
                 <p className="text-xs text-slate-400">
@@ -108,7 +111,7 @@ export const GameHistoryModal: React.FC<GameHistoryModalProps> = ({
               </div>
             ) : games.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center text-slate-400">
-                <span className="text-4xl mb-2">♟️</span>
+                <KingPieceIcon size={38} className="text-slate-600 mb-2" />
                 <p className="font-semibold text-slate-300">No match records found yet</p>
                 <p className="text-xs text-slate-500 max-w-xs mt-1">
                   Complete your first match against any AI personality to log and analyze your games.

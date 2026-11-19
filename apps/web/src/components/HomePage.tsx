@@ -1,5 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
+import { ShieldIcon, SwordsIcon, FlameIcon, ZapIcon, SparklesIcon, PlayIcon, BrainIcon, UserIcon, TrophyIcon } from "./icons";
 import type { StyleId, UserProfile } from "@chessverse/contracts";
 
 interface HomePageProps {
@@ -14,7 +15,7 @@ const stylesData: Array<{
   id: StyleId;
   name: string;
   badge: string;
-  icon: string;
+  Icon: typeof ShieldIcon;
   color: string;
   borderHover: string;
   gradient: string;
@@ -29,7 +30,7 @@ const stylesData: Array<{
     id: "solid",
     name: "Solid",
     badge: "Positional Master",
-    icon: "🛡️",
+    Icon: ShieldIcon,
     color: "text-blue-400",
     borderHover: "hover:border-blue-500/50",
     gradient: "from-blue-600/10 via-slate-900 to-slate-950",
@@ -44,7 +45,7 @@ const stylesData: Array<{
     id: "aggressive",
     name: "Aggressive",
     badge: "The Firebreather",
-    icon: "⚡",
+    Icon: SwordsIcon,
     color: "text-rose-400",
     borderHover: "hover:border-rose-500/50",
     gradient: "from-rose-600/10 via-slate-900 to-slate-950",
@@ -59,7 +60,7 @@ const stylesData: Array<{
     id: "gambiteer",
     name: "Gambiteer",
     badge: "Romantic Era",
-    icon: "🔥",
+    Icon: FlameIcon,
     color: "text-amber-400",
     borderHover: "hover:border-amber-500/50",
     gradient: "from-amber-600/10 via-slate-900 to-slate-950",
@@ -74,7 +75,7 @@ const stylesData: Array<{
     id: "tricky",
     name: "Tricky",
     badge: "Tactical Magician",
-    icon: "🎭",
+    Icon: ZapIcon,
     color: "text-purple-400",
     borderHover: "hover:border-purple-500/50",
     gradient: "from-purple-600/10 via-slate-900 to-slate-950",
@@ -158,7 +159,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             transition={{ duration: 0.5 }}
           >
             <div className="inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4 py-1.5 text-xs font-semibold text-indigo-300 backdrop-blur-md mb-6">
-              <span>✨</span>
+              <SparklesIcon size={14} className="text-indigo-400" />
               <span>Next-Generation Chess Intelligence</span>
               <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse" />
             </div>
@@ -177,7 +178,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                 onClick={() => onStartGame()}
                 className="group flex items-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 px-7 py-3.5 text-sm font-bold text-white shadow-xl shadow-indigo-500/25 transition-all hover:brightness-110 active:scale-95"
               >
-                <span>⚔️</span>
+                <PlayIcon size={14} />
                 <span>Play Now</span>
                 <span className="transition-transform group-hover:translate-x-1">→</span>
               </button>
@@ -186,7 +187,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                 onClick={onOpenSideDialog}
                 className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-slate-200 backdrop-blur-md transition-all hover:border-white/25 hover:bg-white/10 active:scale-95"
               >
-                <span>🎭</span>
+                <BrainIcon size={15} />
                 <span>Choose AI Style & Color</span>
               </button>
 
@@ -195,7 +196,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                   onClick={onOpenAuth}
                   className="flex items-center gap-2 rounded-2xl border border-indigo-500/30 bg-indigo-600/10 px-6 py-3.5 text-sm font-semibold text-indigo-300 backdrop-blur-md transition-all hover:bg-indigo-600/20 active:scale-95"
                 >
-                  <span>👤</span>
+                  <UserIcon size={15} />
                   <span>Sign In / Free Account</span>
                 </button>
               )}
@@ -226,7 +227,9 @@ export const HomePage: React.FC<HomePageProps> = ({
                 <div>
                   {/* Card Header */}
                   <div className="flex items-center justify-between">
-                    <span className="text-3xl">{s.icon}</span>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 border border-white/10">
+                      <s.Icon size={20} className={s.color} />
+                    </div>
                     <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-300">
                       {s.badge}
                     </span>
@@ -292,8 +295,8 @@ export const HomePage: React.FC<HomePageProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-6 backdrop-blur-md">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-2xl mb-4">
-                💎
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/10 border border-indigo-500/20 mb-4">
+                <TrophyIcon size={24} className="text-indigo-400" />
               </div>
               <h3 className="text-base font-bold text-white">Move Quality & Brilliant Sacrifices</h3>
               <p className="mt-2 text-xs text-slate-400 leading-relaxed">
@@ -302,8 +305,8 @@ export const HomePage: React.FC<HomePageProps> = ({
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-6 backdrop-blur-md">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-2xl mb-4">
-                ⚡
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/20 mb-4">
+                <ZapIcon size={24} className="text-cyan-400" />
               </div>
               <h3 className="text-base font-bold text-white">Fluid Premoves Like Chess.com</h3>
               <p className="mt-2 text-xs text-slate-400 leading-relaxed">
@@ -312,8 +315,8 @@ export const HomePage: React.FC<HomePageProps> = ({
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-6 backdrop-blur-md">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-2xl mb-4">
-                🛡️
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 mb-4">
+                <ShieldIcon size={24} className="text-amber-400" />
               </div>
               <h3 className="text-base font-bold text-white">Resilient Write-Behind Persistence</h3>
               <p className="mt-2 text-xs text-slate-400 leading-relaxed">

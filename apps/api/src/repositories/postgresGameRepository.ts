@@ -32,6 +32,8 @@ export class PostgresGameRepository implements PersistentGameRepository {
       .where(eq(movesTable.gameId, gameId))
       .orderBy(movesTable.moveId);
 
+    const storedAnalyses = ((game.engineState as any)?.moveAnalyses ?? {}) as Record<string, any>;
+
     return {
       gameId: game.gameId,
       userId: game.userId ?? null,
@@ -41,17 +43,22 @@ export class PostgresGameRepository implements PersistentGameRepository {
       fen: game.currentFen,
       status: game.status as StoredGame["status"],
       evaluation: null,
-      moveHistory: moveRows.map((row: typeof movesTable.$inferSelect): MoveHistoryEntry => ({
-        moveNumber: row.moveNumber,
-        player: row.player as "human" | "ai",
-        fenBefore: row.fenBefore,
-        fenAfter: row.fenAfter,
-        moveUci: row.moveUci,
-        moveNotation: row.moveNotation,
-        evaluation: decodeEvaluation(row.evaluation),
-        engineMode: row.engineMode as MoveHistoryEntry["engineMode"],
-        timestamp: row.timestamp.toISOString(),
-      })),
+      moveHistory: moveRows.map((row: typeof movesTable.$inferSelect): MoveHistoryEntry => {
+        const key = `${row.player}:${row.moveNumber}:${row.moveUci}`;
+        const analysis = storedAnalyses[key];
+        return {
+          moveNumber: row.moveNumber,
+          player: row.player as "human" | "ai",
+          fenBefore: row.fenBefore,
+          fenAfter: row.fenAfter,
+          moveUci: row.moveUci,
+          moveNotation: row.moveNotation,
+          evaluation: decodeEvaluation(row.evaluation),
+          engineMode: row.engineMode as MoveHistoryEntry["engineMode"],
+          timestamp: row.timestamp.toISOString(),
+          ...(analysis ? { analysis } : {}),
+        };
+      }),
       engineState: game.engineState as EngineState,
       result: (game.result as StoredGame["result"]) ?? null,
       totalMoves: game.totalMoves,
@@ -63,6 +70,19 @@ export class PostgresGameRepository implements PersistentGameRepository {
   }
 
   async saveGame(game: StoredGame): Promise<void> {
+    const existingAnalyses = ((game.engineState as any)?.moveAnalyses ?? {}) as Record<string, any>;
+    const updatedAnalyses = { ...existingAnalyses };
+    for (const move of game.moveHistory) {
+      if (move.analysis) {
+        const key = `${move.player}:${move.moveNumber}:${move.moveUci}`;
+        updatedAnalyses[key] = move.analysis;
+      }
+    }
+    const engineStateToPersist = {
+      ...game.engineState,
+      moveAnalyses: updatedAnalyses,
+    };
+
     await this.db.transaction(async (tx: any) => {
       await tx
         .insert(gamesTable)
@@ -76,7 +96,7 @@ export class PostgresGameRepository implements PersistentGameRepository {
           currentFen: game.fen,
           result: game.result,
           totalMoves: game.totalMoves,
-          engineState: game.engineState,
+          engineState: engineStateToPersist,
           startTime: new Date(game.startTime),
           endTime: game.endTime ? new Date(game.endTime) : null,
           createdAt: new Date(game.createdAt),
@@ -93,7 +113,7 @@ export class PostgresGameRepository implements PersistentGameRepository {
             currentFen: game.fen,
             result: game.result,
             totalMoves: game.totalMoves,
-            engineState: game.engineState,
+            engineState: engineStateToPersist,
             startTime: new Date(game.startTime),
             endTime: game.endTime ? new Date(game.endTime) : null,
             updatedAt: new Date(game.updatedAt),
@@ -237,6 +257,77 @@ export class PostgresGameRepository implements PersistentGameRepository {
           WHEN ${thinkingTimeMs} = 0 THEN engine_stats.avg_thinking_time_ms
           ELSE ROUND((engine_stats.avg_thinking_time_ms + ${thinkingTimeMs}) / 2.0)
         END
+    `);
+  }
+
+  async initializeSchema(): Promise<void> {
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id uuid PRIMARY KEY,
+        username varchar(64) NOT NULL UNIQUE,
+        email varchar(255) NOT NULL UNIQUE,
+        password_hash text NOT NULL,
+        created_at timestamp with time zone NOT NULL,
+        updated_at timestamp with time zone NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS games (
+        game_id uuid PRIMARY KEY,
+        user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+        player_color varchar(16) NOT NULL,
+        difficulty varchar(16) NOT NULL,
+        style varchar(32) DEFAULT 'solid',
+        status varchar(32) NOT NULL,
+        current_fen text NOT NULL,
+        result varchar(16),
+        total_moves integer NOT NULL,
+        engine_state jsonb NOT NULL,
+        start_time timestamp with time zone NOT NULL,
+        end_time timestamp with time zone,
+        created_at timestamp with time zone NOT NULL,
+        updated_at timestamp with time zone NOT NULL
+      );
+
+      ALTER TABLE games ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES users(id) ON DELETE SET NULL;
+      ALTER TABLE games ADD COLUMN IF NOT EXISTS style varchar(32) DEFAULT 'solid';
+
+      CREATE TABLE IF NOT EXISTS moves (
+        move_id serial PRIMARY KEY,
+        game_id uuid NOT NULL REFERENCES games(game_id) ON DELETE CASCADE,
+        move_number integer NOT NULL,
+        player varchar(16) NOT NULL,
+        fen_before text NOT NULL,
+        fen_after text NOT NULL,
+        move_uci varchar(8) NOT NULL,
+        move_notation varchar(32) NOT NULL,
+        evaluation integer,
+        engine_mode varchar(32),
+        timestamp timestamp with time zone NOT NULL
+      );
+
+      ALTER TABLE moves ADD COLUMN IF NOT EXISTS evaluation integer;
+      ALTER TABLE moves ADD COLUMN IF NOT EXISTS engine_mode varchar(32);
+
+      CREATE TABLE IF NOT EXISTS engine_stats (
+        stat_id serial PRIMARY KEY,
+        date varchar(10) NOT NULL UNIQUE,
+        total_games integer NOT NULL DEFAULT 0,
+        gambits_attempted integer NOT NULL DEFAULT 0,
+        gambits_accepted integer NOT NULL DEFAULT 0,
+        sacrifices_played integer NOT NULL DEFAULT 0,
+        traps_set integer NOT NULL DEFAULT 0,
+        traps_triggered integer NOT NULL DEFAULT 0,
+        avg_thinking_time_ms integer NOT NULL DEFAULT 0
+      );
+
+      CREATE INDEX IF NOT EXISTS users_username_idx ON users(username);
+      CREATE INDEX IF NOT EXISTS users_email_idx ON users(email);
+      CREATE INDEX IF NOT EXISTS games_status_idx ON games(status);
+      CREATE INDEX IF NOT EXISTS games_user_id_idx ON games(user_id);
+      CREATE INDEX IF NOT EXISTS games_updated_at_idx ON games(updated_at);
+      CREATE INDEX IF NOT EXISTS moves_game_id_idx ON moves(game_id);
+      CREATE INDEX IF NOT EXISTS moves_move_number_idx ON moves(move_number);
+      CREATE INDEX IF NOT EXISTS engine_stats_date_idx ON engine_stats(date);
     `);
   }
 

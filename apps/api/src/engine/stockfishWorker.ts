@@ -271,6 +271,14 @@ export class StockfishWorker {
         return this.tablebasesLoaded;
     }
 
+    private executionChain: Promise<unknown> = Promise.resolve();
+
+    private runExclusive<T>(fn: () => Promise<T>): Promise<T> {
+        const next = this.executionChain.catch(() => {}).then(() => fn());
+        this.executionChain = next;
+        return next;
+    }
+
     stopSearch(): void {
         try {
             this.sendCommand("stop");
@@ -461,6 +469,17 @@ export class StockfishWorker {
                 );
             });
 
+            child.stdin.on("error", (err: NodeJS.ErrnoException) => {
+                this.logger.warn(
+                    {
+                        workerId: this.workerId,
+                        code: err.code,
+                        message: err.message,
+                    },
+                    "Stockfish worker stdin error caught (prevented crash)",
+                );
+            });
+
             child.once("spawn", onSpawn);
             child.once("error", onStartupError);
 
@@ -538,12 +557,27 @@ export class StockfishWorker {
 
     private sendCommand(command: string): void {
         if (this.lastError) throw this.lastError;
-        if (!this.process?.stdin.writable) {
+        if (!this.process || !this.process.stdin || !this.process.stdin.writable || this.process.killed) {
             throw new Error(
                 `Stockfish worker ${this.workerId} stdin is not writable`,
             );
         }
-        this.process.stdin.write(`${command}\n`);
+        try {
+            this.process.stdin.write(`${command}\n`, (err) => {
+                if (err) {
+                    this.logger.warn(
+                        { workerId: this.workerId, error: err.message },
+                        "Stockfish stdin write callback error",
+                    );
+                }
+            });
+        } catch (err) {
+            this.logger.warn(
+                { workerId: this.workerId, err },
+                "Failed writing command to Stockfish stdin",
+            );
+            throw err;
+        }
     }
 
     private sendAndWait(
@@ -585,12 +619,14 @@ export class StockfishWorker {
     async ping(
         timeoutMs = Math.max(env.HEARTBEAT_TIMEOUT_MS, 10_000),
     ): Promise<void> {
-        await this.initialize();
-        await this.sendAndWait(
-            "isready",
-            (line) => line === "readyok",
-            timeoutMs,
-        );
+        return this.runExclusive(async () => {
+            await this.initialize();
+            await this.sendAndWait(
+                "isready",
+                (line) => line === "readyok",
+                timeoutMs,
+            );
+        });
     }
 
 
@@ -650,6 +686,17 @@ export class StockfishWorker {
         timeoutMs = depth > 14 ? 20_000 : env.ENGINE_TIMEOUT_MS,
         options: AnalysisOptions = {},
     ): Promise<AnalysisResult> {
+        return this.runExclusive(() =>
+            this.doAnalyzePosition(fen, depth, timeoutMs, options),
+        );
+    }
+
+    private async doAnalyzePosition(
+        fen: string,
+        depth: number,
+        timeoutMs = depth > 14 ? 20_000 : env.ENGINE_TIMEOUT_MS,
+        options: AnalysisOptions = {},
+    ): Promise<AnalysisResult> {
         await this.initialize();
 
         return new Promise<AnalysisResult>((resolve, reject) => {
@@ -688,7 +735,7 @@ export class StockfishWorker {
                         "No candidates at target depth — using emergency fallback",
                     );
                     try {
-                        const emergency = await this.analyzePosition(
+                        const emergency = await this.doAnalyzePosition(
                             fen,
                             6,
                             4_000,
@@ -798,6 +845,24 @@ export class StockfishWorker {
 
 
     async analyzeWithMovetime(
+        fen: string,
+        movetimeMs: number,
+        minDepth = 8,
+        timeoutMs = movetimeMs + 3_000,
+        options: AnalysisOptions = {},
+    ): Promise<AnalysisResult> {
+        return this.runExclusive(() =>
+            this.doAnalyzeWithMovetime(
+                fen,
+                movetimeMs,
+                minDepth,
+                timeoutMs,
+                options,
+            ),
+        );
+    }
+
+    private async doAnalyzeWithMovetime(
         fen: string,
         movetimeMs: number,
         minDepth = 8,

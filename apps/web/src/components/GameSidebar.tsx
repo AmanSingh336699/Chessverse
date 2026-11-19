@@ -9,6 +9,7 @@ import type {
 import { motion, AnimatePresence } from "framer-motion";
 import { MoveQualitySymbol, getMoveQualityVisual } from "./MoveQualitySymbol";
 import { MoveExplanationPanel } from "./MoveExplanationPanel";
+import { ShieldIcon, SwordsIcon, DicesIcon, ZapIcon, KingPieceIcon, TargetIcon, FlameIcon, BrainIcon } from "./icons";
 
 interface GameSidebarProps {
   game: GameSnapshot | null;
@@ -40,11 +41,11 @@ const PIECE_ICONS: Record<string, string> = {
   q: "♕",
 };
 
-const STYLE_BADGES: Record<string, { name: string; icon: string; color: string; badgeBg: string }> = {
-  solid: { name: "Solid", icon: "🛡️", color: "#56d0ff", badgeBg: "rgba(86,208,255,0.12)" },
-  aggressive: { name: "Aggressive", icon: "⚔️", color: "#ff6b4a", badgeBg: "rgba(255,107,74,0.12)" },
-  gambiteer: { name: "Gambiteer", icon: "🎲", color: "#c084fc", badgeBg: "rgba(192,132,252,0.12)" },
-  tricky: { name: "Tricky", icon: "⚡", color: "#fbbf24", badgeBg: "rgba(251,191,36,0.12)" },
+const STYLE_BADGES: Record<string, { name: string; Icon: typeof ShieldIcon; color: string; badgeBg: string }> = {
+  solid: { name: "Solid", Icon: ShieldIcon, color: "#56d0ff", badgeBg: "rgba(86,208,255,0.12)" },
+  aggressive: { name: "Aggressive", Icon: SwordsIcon, color: "#ff6b4a", badgeBg: "rgba(255,107,74,0.12)" },
+  gambiteer: { name: "Gambiteer", Icon: DicesIcon, color: "#c084fc", badgeBg: "rgba(192,132,252,0.12)" },
+  tricky: { name: "Tricky", Icon: ZapIcon, color: "#fbbf24", badgeBg: "rgba(251,191,36,0.12)" },
 };
 
 const titleCase = (value: string): string =>
@@ -421,7 +422,7 @@ export const GameSidebar = ({
                           )}
                           <div className="flex items-center gap-3">
                               <div className="h-10 w-10 flex items-center justify-center shrink-0 rounded-xl bg-linear-to-br from-slate-600 to-slate-900 shadow-md border border-white/10 text-white text-lg">
-                                  {aiColorStr === "black" ? "♚" : "♔"}
+                                  <KingPieceIcon size={22} fill={aiColorStr} />
                               </div>
                               <div className="flex flex-col">
                                   <span className="text-sm font-semibold text-white">
@@ -453,7 +454,7 @@ export const GameSidebar = ({
                           )}
                           <div className="flex items-center gap-3">
                               <div className="h-10 w-10 flex items-center justify-center shrink-0 rounded-xl bg-linear-to-br from-white to-slate-200 shadow-md text-slate-900 border border-white/20 text-lg font-bold">
-                                  {playerColorStr === "white" ? "♔" : "♚"}
+                                  <KingPieceIcon size={22} fill={playerColorStr} />
                               </div>
                               <div className="flex flex-col">
                                   <span className="text-sm font-semibold text-white">
@@ -491,7 +492,10 @@ export const GameSidebar = ({
                                   color: STYLE_BADGES[game?.style ?? game?.engineState.style ?? "solid"]?.color ?? "#56d0ff",
                               }}
                           >
-                              <span>{STYLE_BADGES[game?.style ?? game?.engineState.style ?? "solid"]?.icon ?? "🛡️"}</span>
+                              {(() => {
+    const BadgeIcon = STYLE_BADGES[game?.style ?? game?.engineState.style ?? "solid"]?.Icon ?? ShieldIcon;
+    return <BadgeIcon size={13} className="shrink-0" />;
+  })()}
                               <span>{STYLE_BADGES[game?.style ?? game?.engineState.style ?? "solid"]?.name ?? "Solid"}</span>
                           </span>
                       </div>
